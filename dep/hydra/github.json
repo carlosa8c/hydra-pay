@@ -1,7 +1,7 @@
 {
-  "owner": "input-output-hk",
+  "owner": "cardano-scaling",
   "repo": "hydra",
   "private": false,
-  "rev": "1e13b60a7b21c5ccd6c36e3cf220547f5d443cef",
-  "sha256": "0djrzy9vigpi1y7izshc3li0rxmvbd5d5fk06ya001b9dbhjqgid"
+  "rev": "b5e33b55e9fba442c562f82cec6c36b1716d9847",
+  "sha256": "1fhm4v6mmghrd448bfmpam4mb6vvy8fdhdf86dzwcb85jw1l3map"
 }

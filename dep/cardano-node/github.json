@@ -1,8 +1,7 @@
 {
-  "owner": "obsidiansystems",
+  "owner": "IntersectMBO",
   "repo": "cardano-node",
-  "branch": "v8.1.2",
   "private": false,
-  "rev": "d2d90b48c5577b4412d5c9c9968b55f8ab4b9767",
-  "sha256": "1qpmlfxdfx2dg12109cyn75ybcwxjz0wk451pzcalfdzxhvpqibp"
+  "rev": "420c94fbb075146c6ec7fba78c5b0482fafe72dd",
+  "sha256": "19xaakcy381gik7d6irkxsls9g6sxykmzkksh7fn02afc3zn32rj"
 }

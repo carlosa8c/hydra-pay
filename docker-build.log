@@ -1,0 +1,45 @@
+trace: Warning: `stdenv.lib` is deprecated and will be removed in the next release. Please use `lib` instead. For more information see https://github.com/NixOS/nixpkgs/issues/108938
+building '/nix/store/hdbsr6ll2ads066anakfaib8md2fwgd1-source.drv'...
+
+trying https://api.github.com/repos/numtide/flake-utils/tarball/b1d9ab70662946ef0850d488da1c9019f3a9752a
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+100  8984  100  8984    0     0  21424      0 --:--:-- --:--:-- --:--:--     0
+unpacking source archive /nix/var/nix/builds/nix-78518-151954666/b1d9ab70662946ef0850d488da1c9019f3a9752a
+do not know how to unpack source archive /nix/var/nix/builds/nix-78518-151954666/b1d9ab70662946ef0850d488da1c9019f3a9752a
+error:
+       … while calling the 'derivationStrict' builtin
+         at «nix-internal»/derivation-internal.nix:37:12:
+           36|
+           37|   strict = derivationStrict drvAttrs;
+             |            ^
+           38|
+
+       … while evaluating derivation 'docker-image-hydra-pay.tar.gz'
+         whose name attribute is located at /nix/store/ijgb60x8cyqbsad3h4wify3byqghsr19-nixpkgs/nixpkgs/pkgs/stdenv/generic/make-derivation.nix:544:13
+
+       … while evaluating attribute 'buildCommand' of derivation 'docker-image-hydra-pay.tar.gz'
+         at /nix/store/ijgb60x8cyqbsad3h4wify3byqghsr19-nixpkgs/nixpkgs/pkgs/build-support/trivial-builders/default.nix:80:17:
+           79|         enableParallelBuilding = true;
+           80|         inherit buildCommand name;
+             |                 ^
+           81|         passAsFile = [ "buildCommand" ] ++ (derivationArgs.passAsFile or [ ]);
+
+       (stack trace truncated; use '--show-trace' to show the full, detailed trace)
+
+       error: Cannot build '/nix/store/hdbsr6ll2ads066anakfaib8md2fwgd1-source.drv'.
+       Reason: builder failed with exit code 1.
+       Output paths:
+         /nix/store/na7sykizsgkzh9i3wc8m8pz5xfqib2rv-source
+       Last 8 log lines:
+       >
+       > trying https://api.github.com/repos/numtide/flake-utils/tarball/b1d9ab70662946ef0850d488da1c9019f3a9752a
+       >   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+       >                                  Dload  Upload   Total   Spent    Left  Speed
+       >   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+       > 100  8984  100  8984    0     0  21424      0 --:--:-- --:--:-- --:--:--     0
+       > unpacking source archive /nix/var/nix/builds/nix-78518-151954666/b1d9ab70662946ef0850d488da1c9019f3a9752a
+       > do not know how to unpack source archive /nix/var/nix/builds/nix-78518-151954666/b1d9ab70662946ef0850d488da1c9019f3a9752a
+       For full logs, run:
+         nix-store -l /nix/store/hdbsr6ll2ads066anakfaib8md2fwgd1-source.drv

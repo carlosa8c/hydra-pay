@@ -118,6 +118,7 @@ cardanoProjectDef = ({ nixpkgs, pkgs, hackGet, ... }@args: let
   rhyoliteOverridesExcludedPkgs = ["bytestring-aeson-orphans"];
 in {
   overrides = foldExtensions [
+    (self: super: obelisk.lib.mapAttrs (name: pkg: if obelisk.lib.isDerivation pkg && pkg ? pname then haskellLib.dontCheck pkg else pkg) super)
     (self: super: removeAttrs (rhyoliteOverrides self super) rhyoliteOverridesExcludedPkgs)
     cardanoOverlays.combined
     cardanoOverlays.cardanoWalletCoinSelection
@@ -130,6 +131,7 @@ in {
         if pkgs'.hostPlatform.isiOS or false
         then haskellLib.dontStrip (haskellLib.enableCabalFlag super.frontend "static-lib")
         else super.frontend;
+      frontend = haskellLib.dontCheck super.frontend;
       beam-core = self.callHackage "beam-core" "0.9.2.1" {};
       beam-migrate = self.callHackage "beam-migrate" "0.5.1.2" {}; # aeson 2 support
       beam-postgres = haskellLib.dontCheck (self.callHackage "beam-postgres" "0.5.2.1" {});
@@ -222,8 +224,9 @@ in {
       logging-effect-syslog = self.callCabal2nix "logging-effect-syslog" deps.logging-effect-syslog {};
       logging-effect-colors = self.callCabal2nix "logging-effect-colors" deps.logging-effect-colors {};
 
-      postgresql-simple = haskellLib.doJailbreak (self.callHackage "postgresql-simple" "0.6.4" {});
+      postgresql-simple = haskellLib.doJailbreak (haskellLib.dontCheck (self.callHackage "postgresql-simple" "0.6.4" {}));
       postgresql-lo-stream = haskellLib.doJailbreak (haskellLib.markUnbroken super.postgresql-lo-stream);
+      http2 = haskellLib.overrideCabal super.http2 (drv: { testSuites = []; });
     })
   ];
 

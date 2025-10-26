@@ -183,7 +183,7 @@ in self: super: {
   servant-server = self.callHackage "servant-server" "0.18.3" {};
   servant-subscriber = self.callHackage "servant-subscriber" "0.7.0.0" {};
   servant-websockets = self.callHackage "servant-websockets" "2.0.0" {};
-  http2 = haskellLib.dontCheck super.http2;
+  http2 = builtins.trace "overriding http2" (haskellLib.dontCheck super.http2);
   http-media = haskellLib.doJailbreak super.http-media;
   tasty-bench = self.callHackage "tasty-bench" "0.2.5" {};
   async-timer = haskellLib.doJailbreak (haskellLib.dontCheck (haskellLib.markUnbroken super.async-timer));

@@ -1,4 +1,4 @@
-{ system ? builtins.currentSystem
+{ system ? "x86_64-darwin"
 , cardanoProject ? import ./cardano-project {
     inherit system;
   }
@@ -24,11 +24,6 @@ let
       haskellLib = pkgs.haskell.lib;
     in
     pkgs.lib.recursiveUpdate pd {
-      android.applicationId = "systems.obsidian.obelisk.examples.minimal";
-      android.displayName = "Obelisk Minimal Example";
-      ios.bundleIdentifier = "systems.obsidian.obelisk.examples.minimal";
-      ios.bundleName = "Obelisk Minimal Example";
-
       packages =
       {
         hydra-pay = ./hydra-pay;

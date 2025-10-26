@@ -22,7 +22,7 @@
   };
 in
 {
-  dockerImage = args@{ version ? "latest", name ? "obsidiansys/hydra-pay" }:
+  dockerImage = args@{ version ? "latest", name ? "carlosa8c/hydra-pay" }:
     pkgs.dockerTools.buildImage ({
       name = name;
       tag = version;
