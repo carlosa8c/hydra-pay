@@ -50,7 +50,6 @@ let
             cardano-node.cardano-node
             cardano-node.cardano-cli
             hydra.hydra-node
-            hydra.hydra-tools-static
           ];
         });
 
@@ -59,7 +58,6 @@ let
             cardano-node.cardano-node
             cardano-node.cardano-cli
             hydra.hydra-node
-            hydra.hydra-tools-static
           ];
         });
       };
