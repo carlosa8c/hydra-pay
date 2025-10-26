@@ -1,4 +1,4 @@
-{ system ? "x86_64-darwin"
+{ system ? builtins.currentSystem
 , cardanoProject ? import ./cardano-project {
     inherit system;
   }
