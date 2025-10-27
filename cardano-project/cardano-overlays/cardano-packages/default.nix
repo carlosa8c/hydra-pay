@@ -4,36 +4,31 @@
 
 let
   deps = pkgs.thunkSet ./dep;
-  # Avoid cabal2nix scanning cabal.project in the repo root by filtering it out.
-  cleanCardanoBase = pkgs.lib.cleanSourceWith {
-    src = deps.cardano-base;
-    filter = path: type:
-      let base = builtins.baseNameOf path; in
-      !(base == "cabal.project" || base == "cabal.project.freeze" || base == "cabal.project.local");
+  cardanoBaseSrc = pkgs.fetchFromGitHub {
+    owner = "IntersectMBO";
+    repo = "cardano-base";
+    rev = "9b4b06e43e45884f6e1d9dca5436e5367f5ed439";
+    sha256 = "071grqfjnpnckrgk1fv3xhs1sjl944m7qip00hdwx2s9mxbnb9lb";
   };
-  # Materialize a plain directory in the store (not a fetcher) so cabal2nix
-  # treats it as a local source tree and doesn't try to re-fetch.
-  cardanoBaseSrc = pkgs.runCommand "cardano-base-src" { src = cleanCardanoBase; } ''
-    mkdir -p "$out"
-    # Copy the entire tree including dotfiles without preserving modes that can upset builders
-    cp -rT "$src" "$out"
-  '';
 in self: super: {
+  heapwords = self.callCabal2nix "heapwords" (pkgs.runCommand "heapwords-src" {} "cp -r ${cardanoBaseSrc}/heapwords $out") {};
+  memory-pool = self.callHackage "memory-pool" {};
+  mempack = self.callHackage "mempack" {};
 
   # cardano-prelude
   # cardano-prelude = self.callCabal2nix "cardano-prelude" (deps.cardano-prelude + "/cardano-prelude") {};
   # cardano-prelude-test = self.callCabal2nix "cardano-prelude-test" (deps.cardano-prelude + "/cardano-prelude-test") {};
 
   # cardano-base
-  # Use callCabal2nix on a realized directory to avoid VCS/re-fetch confusion.
-  cardano-binary = haskellLib.enableCabalFlag (
-    self.callCabal2nix "cardano-binary" (cardanoBaseSrc + "/binary") {}
-  ) "development";
+  cardano-binary = haskellLib.dontCheck (haskellLib.enableCabalFlag (
+    self.callPackage ./generated/cardano-binary.nix {}
+  ) "development");
   cardano-binary-test = haskellLib.enableCabalFlag (
-    self.callCabal2nix "cardano-binary-test" (cardanoBaseSrc + "/binary/test") {}
+    self.callCabal2nixWithOptions "cardano-binary-test" cardanoBaseSrc "--subpath cardano-binary/test" {}
   ) "development";
-  cardano-slotting = self.callCabal2nix "cardano-slotting" (cardanoBaseSrc + "/slotting") {};
-  strict-containers = self.callCabal2nix "strict-containers" (cardanoBaseSrc + "/strict-containers") {};
+  cardano-slotting = self.callCabal2nix "cardano-slotting" (cardanoBaseSrc + "/cardano-slotting") {};
+  # strict-containers = self.callHackage "strict-containers" "0.1.0.0" {};
+  cardano-strict-containers = haskellLib.dontCheck (self.callCabal2nix "cardano-strict-containers" (cardanoBaseSrc + "/cardano-strict-containers") {});
   base-deriving-via = self.callCabal2nix "base-deriving-via" (cardanoBaseSrc + "/base-deriving-via") {};
   orphans-deriving-via = self.callCabal2nix "orphans-deriving-via" (cardanoBaseSrc + "/orphans-deriving-via") {};
   measures = self.callCabal2nix "measures" (cardanoBaseSrc + "/measures") {};

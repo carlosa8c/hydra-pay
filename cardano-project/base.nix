@@ -21,6 +21,7 @@ args@{ rpSetup, obelisk, ... }:
           th-orphans = self.callHackage "th-orphans" "0.13.10" {};
           scientific = haskellLib.dontCheck super.scientific;
           ral = haskellLib.doJailbreak (self.callHackage "ral" "0.1" {});
+          crypton = self.callHackage "crypton" {};
 
           flat = self.callCabal2nix "flat" deps.flat {};
           formatting = haskellLib.dontCheck (self.callHackage "formatting" "7.1.2" {});
@@ -117,7 +118,9 @@ args@{ rpSetup, obelisk, ... }:
                     '';
             });
 
-          cardano-prelude-test = haskellLib.dontCheck (self.callCabal2nix "cardano-prelude-test" (deps.cardano-prelude + "/cardano-prelude-test") {});
+          # cardano-prelude-test = haskellLib.dontCheck (self.callCabal2nix "cardano-prelude-test" (deps.cardano-prelude + "/cardano-prelude-test") {});
+
+          # strict-containers = self.callHackage "strict-containers" {};
 
           cardano-crypto-wrapper = haskellLib.dontCheck (self.callCabal2nix "cardano-crypto-wrapper" (deps.cardano-ledger + "/eras/byron/crypto") {});
 
