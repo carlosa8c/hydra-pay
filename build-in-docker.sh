@@ -30,12 +30,12 @@ if [ -z "${NIX_SANDBOX:-}" ]; then
 fi
 echo "Nix sandbox (host $(uname -s)): ${NIX_SANDBOX}"
 
-# On macOS/Apple Silicon, prefer running the amd64 nix image for consistency
+# On macOS, prefer running the amd64 nix image for consistency
 if [ -z "${DOCKER_PLATFORM:-}" ]; then
   case "$(uname -s)" in
     Darwin)
-      # Prefer native arch on Apple Silicon to avoid seccomp issues under emulation
-      DOCKER_PLATFORM=linux/arm64/v8 ;;
+      # Use amd64 to align with most upstream binary tools and avoid cross-arch exec issues
+      DOCKER_PLATFORM=linux/amd64 ;;
     *)
       DOCKER_PLATFORM= ;;
   esac

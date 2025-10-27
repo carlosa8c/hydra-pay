@@ -2,6 +2,6 @@
   "owner": "IntersectMBO",
   "repo": "cardano-node",
   "private": false,
-  "rev": "ca1ec278070baf4481564a6ba7b4a5b9e3d9f366",
-  "sha256": "189bzfrkcxyjvry9yd2fvhqsg3fazcliwcxd8623fcfczh6k0030"
+  "rev": "1.35.7",
+  "sha256": "0s2jkj4mwl03hxg4ff9kyw41s32xbf31rnhag2m1qrglgsh8wzw9"
 }

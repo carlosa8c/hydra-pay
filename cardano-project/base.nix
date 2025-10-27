@@ -77,22 +77,45 @@ args@{ rpSetup, obelisk, ... }:
             doBenchmark = false;
           });
 
-          cardano-api = haskellLib.overrideCabal (self.callCabal2nix "cardano-api" (deps.cardano-node + "/cardano-api") {}) (drv: {
-            doCheck = false;
-            preConfigure = ''
-                    # cardano-api with Vasil update stopped exposing certain functions we make use of. This exposes them again.
-                    substituteInPlace src/Cardano/Api/Shelley.hs --replace "fromShelleyPParams," "fromShelleyPParams, toAlonzoPParams,"
+          # cardano-api used to live under cardano-node/cardano-api. Newer cardano-node
+          # repos no longer include it. Guard this override to avoid failing cabal2nix
+          # when the directory doesn't exist; fall back to the upstream package.
+          cardano-api = let
+            cardanoApiSrc = deps.cardano-node + "/cardano-api";
+          in if builtins.pathExists cardanoApiSrc then
+            haskellLib.overrideCabal (self.callCabal2nix "cardano-api" cardanoApiSrc {}) (drv: {
+              doCheck = false;
+              preConfigure = ''
+                      # cardano-api with Vasil update stopped exposing certain functions we make use of. This exposes them again.
+                      substituteInPlace src/Cardano/Api/Shelley.hs --replace "fromShelleyPParams," "fromShelleyPParams, toAlonzoPParams,"
 
-                    substituteInPlace cardano-api.cabal \
-                      --replace ", cardano-ledger-byron-test" ""
+                      substituteInPlace cardano-api.cabal \
+                        --replace ", cardano-ledger-byron-test" ""
 
-                    substituteInPlace gen/Gen/Cardano/Api/Typed.hs \
-                      --replace "import           Test.Cardano.Chain.UTxO.Gen (genVKWitness)" "" \
-                      --replace "genVKWitness " "undefined "
+                      substituteInPlace gen/Gen/Cardano/Api/Typed.hs \
+                        --replace "import           Test.Cardano.Chain.UTxO.Gen (genVKWitness)" "" \
+                        --replace "genVKWitness " "undefined "
 
-                    sed -iE '/^library gen$/,$d' cardano-api.cabal
-                  '';
-          });
+                      sed -iE '/^library gen$/,$d' cardano-api.cabal
+                    '';
+            })
+          else
+            # Fall back to Hackage pin for cardano-api compatible with GHC 8.10.7
+            haskellLib.overrideCabal (self.callHackage "cardano-api" "1.35.7" {}) (drv: {
+              doCheck = false;
+              preConfigure = ''
+                      substituteInPlace src/Cardano/Api/Shelley.hs --replace "fromShelleyPParams," "fromShelleyPParams, toAlonzoPParams,"
+
+                      substituteInPlace cardano-api.cabal \
+                        --replace ", cardano-ledger-byron-test" ""
+
+                      substituteInPlace gen/Gen/Cardano/Api/Typed.hs \
+                        --replace "import           Test.Cardano.Chain.UTxO.Gen (genVKWitness)" "" \
+                        --replace "genVKWitness " "undefined "
+
+                      sed -iE '/^library gen$/,$d' cardano-api.cabal
+                    '';
+            });
 
           cardano-prelude-test = haskellLib.dontCheck (self.callCabal2nix "cardano-prelude-test" (deps.cardano-prelude + "/cardano-prelude-test") {});
 
@@ -132,6 +155,45 @@ args@{ rpSetup, obelisk, ... }:
       in
         {
           flat = (haskellLib.dontCheck super.flat);
+        }
+    )
+    # Ensure the cabal2nix generator derivations have nix-prefetch-url available on PATH
+    (self: super:
+      let
+        pkgs = self.callPackage ({ pkgs }: pkgs) {};
+      in
+        {
+          # Ensure cabal2nix generator env has nix-prefetch-* tools on PATH
+          haskellSrc2nix = args: (super.haskellSrc2nix args).overrideAttrs (old: {
+            nativeBuildInputs = (old.nativeBuildInputs or []) ++ [
+              pkgs.nix-prefetch-scripts
+              pkgs.nix
+              pkgs.git
+              pkgs.coreutils
+              pkgs.gnugrep
+              pkgs.gnused
+              pkgs.gnutar
+              pkgs.xz
+              pkgs.gzip
+              pkgs.bzip2
+              pkgs.curl.bin
+            ];
+          });
+          cabal2nix = super.cabal2nix.overrideAttrs (old: {
+            nativeBuildInputs = (old.nativeBuildInputs or []) ++ [
+              pkgs.nix-prefetch-scripts
+              pkgs.nix
+              pkgs.git
+              pkgs.coreutils
+              pkgs.gnugrep
+              pkgs.gnused
+              pkgs.gnutar
+              pkgs.xz
+              pkgs.gzip
+              pkgs.bzip2
+              pkgs.curl.bin
+            ];
+          });
         }
     )
   ];
