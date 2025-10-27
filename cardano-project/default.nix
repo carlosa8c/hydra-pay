@@ -24,7 +24,6 @@
       in
       import ((import ./.obelisk/impl {}).path + "/dep/reflex-platform")
         (args // {
-          inherit nixpkgs;
           __useNewerCompiler = true;
           useTextJSString = false;
           nixpkgsOverlays = let deps = rpSetup.nixpkgs.thunkSet ./cardano-overlays/dep; in (args.nixpkgsOverlays or []) ++ [
@@ -50,6 +49,25 @@
             })
             (self: super: {
               gitMinimal = super.git;
+            })
+            (self: super: {
+              cabal2nix = let orig = super.cabal2nix; in super.writeScriptBin "cabal2nix" ''
+                #!${super.bash}/bin/bash
+                set -euo pipefail
+                # Ensure cabal2nix can call nix-prefetch-* helpers inside builder, even in a minimal PATH
+                export PATH=${super.git}/bin:${super.coreutils}/bin:${super.gnugrep}/bin:${super.gnused}/bin:$PATH
+                NIX_PREFETCH_FALLBACK=${super.nix}/bin/nix-prefetch-url
+                [ -x "$NIX_PREFETCH_FALLBACK" ] || NIX_PREFETCH_FALLBACK=${super.nix-prefetch-scripts}/bin/nix-prefetch-url
+                TMP_SHIM=$(mktemp -d)
+                # Embed absolute path to nix-prefetch-url so the shim does not rely on environment variables
+                cat > "$TMP_SHIM/nix-prefetch-url" <<EOF_SHIM
+                #!${super.bash}/bin/bash
+                exec "${NIX_PREFETCH_FALLBACK}" "\$@"
+                EOF_SHIM
+                chmod +x "$TMP_SHIM/nix-prefetch-url"
+                export PATH="$TMP_SHIM:$PATH"
+                ${orig}/bin/cabal2nix "$@" | ${super.gnused}/bin/sed '/disallowGhcReference/d'
+              '';
             })
           ];
           haskellOverlaysPre = baseOverlays.haskellOverlaysPre ++ extraOverlays.haskellOverlaysPre;
@@ -232,6 +250,23 @@ in {
       postgresql-simple = haskellLib.doJailbreak (haskellLib.dontCheck (self.callHackage "postgresql-simple" "0.6.4" {}));
       postgresql-lo-stream = haskellLib.doJailbreak (haskellLib.markUnbroken super.postgresql-lo-stream);
       http2 = haskellLib.overrideCabal super.http2 (drv: { testSuites = []; });
+      cabal2nix = nixpkgs.writeScriptBin "cabal2nix" ''
+        #!${nixpkgs.bash}/bin/bash
+        set -euo pipefail
+        # Ensure cabal2nix can call nix-prefetch-* helpers inside builder, even in a minimal PATH
+        export PATH=${nixpkgs.git}/bin:${nixpkgs.coreutils}/bin:${nixpkgs.gnugrep}/bin:${nixpkgs.gnused}/bin:$PATH
+        NIX_PREFETCH_FALLBACK=${nixpkgs.nix}/bin/nix-prefetch-url
+        [ -x "$NIX_PREFETCH_FALLBACK" ] || NIX_PREFETCH_FALLBACK=${nixpkgs.nix-prefetch-scripts}/bin/nix-prefetch-url
+        TMP_SHIM=$(mktemp -d)
+  # Embed absolute path to nix-prefetch-url so the shim does not rely on environment variables
+  cat > "$TMP_SHIM/nix-prefetch-url" <<EOF_SHIM
+  #!${nixpkgs.bash}/bin/bash
+  exec "${NIX_PREFETCH_FALLBACK}" "\$@"
+  EOF_SHIM
+        chmod +x "$TMP_SHIM/nix-prefetch-url"
+        export PATH="$TMP_SHIM:$PATH"
+        ${nixpkgs.cabal2nix}/bin/cabal2nix "$@" | ${nixpkgs.gnused}/bin/sed '/disallowGhcReference/d'
+      '';
     })
   ];
 

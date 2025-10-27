@@ -8,7 +8,16 @@ with cardanoProject;
 with obelisk;
 let
   foldExtensions = lib.foldr lib.composeExtensions (_: _: {});
-  deps = nixpkgs.thunkSet ./dep;
+  # Resolve nix-thunks by importing thunk.nix when present to get the real source path
+  realizeThunk = dir:
+    let listing = builtins.readDir dir; in
+    if listing ? "thunk.nix" then import (dir + "/thunk.nix") else dir;
+  # Build deps attrset of realized thunks so consumers see actual sources
+  deps =
+    let
+      dir = ./dep;
+      entries = builtins.readDir dir;
+    in builtins.mapAttrs (name: _type: realizeThunk (dir + "/${name}")) entries;
   flake-compat = import deps.flake-compat;
   hydra = (flake-compat {
     inherit system;
@@ -64,4 +73,7 @@ let
       };
     });
 in
-p // { hydra-pay = pkgs.haskell.lib.justStaticExecutables p.ghc.hydra-pay; inherit cardano-node hydra deps;}
+# Note: avoid haskell.lib.justStaticExecutables here due to incompatibility with
+# the generic builder in the pinned nixpkgs (unexpected arg 'disallowGhcReference').
+# Use the plain package output instead; static linking can be revisited later.
+p // { hydra-pay = p.ghc.hydra-pay; inherit cardano-node hydra deps;}

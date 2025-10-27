@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 echo "Preparing environment..."
 
-# Simple args: --push, --name <repo>, --version <tag>, --cores <n>, --jobs <n>
+# Simple args: --push, --name <repo>, --version <tag>, --cores <n>, --jobs <n>, --attr <attrPath>
 DOCKER_PUSH=${DOCKER_PUSH:-0}
 NAME=${NAME:-carlosa8c/hydra-pay}
 if [ -z "${VERSION:-}" ]; then
@@ -16,6 +16,40 @@ fi
 PUSH_LATEST=${PUSH_LATEST:-1}
 NIX_BUILD_CORES=${NIX_BUILD_CORES:-0}
 NIX_MAX_JOBS=${NIX_MAX_JOBS:-auto}
+TARGET_ATTR=${TARGET_ATTR:-}
+NIX_EXTRA_FLAGS=${NIX_EXTRA_FLAGS:-}
+
+# Detect host OS to choose sensible default for Nix sandboxing
+if [ -z "${NIX_SANDBOX:-}" ]; then
+  case "$(uname -s)" in
+    Darwin)
+      NIX_SANDBOX=false ;;
+    *)
+      NIX_SANDBOX=true ;;
+  esac
+fi
+echo "Nix sandbox (host $(uname -s)): ${NIX_SANDBOX}"
+
+# On macOS/Apple Silicon, prefer running the amd64 nix image for consistency
+if [ -z "${DOCKER_PLATFORM:-}" ]; then
+  case "$(uname -s)" in
+    Darwin)
+      # Prefer native arch on Apple Silicon to avoid seccomp issues under emulation
+      DOCKER_PLATFORM=linux/arm64/v8 ;;
+    *)
+      DOCKER_PLATFORM= ;;
+  esac
+fi
+
+# On macOS, grant privileged mode to avoid kernel seccomp limitations inside nested namespaces
+if [ -z "${DOCKER_PRIVILEGED:-}" ]; then
+  case "$(uname -s)" in
+    Darwin)
+      DOCKER_PRIVILEGED=--privileged ;;
+    *)
+      DOCKER_PRIVILEGED= ;;
+  esac
+fi
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -24,6 +58,7 @@ while [ $# -gt 0 ]; do
     --version) VERSION="$2"; shift 2 ;;
     --cores) NIX_BUILD_CORES="$2"; shift 2 ;;
     --jobs) NIX_MAX_JOBS="$2"; shift 2 ;;
+    --attr) TARGET_ATTR="$2"; shift 2 ;;
     *) echo "Unknown arg: $1 (ignored)"; shift ;;
   esac
 done
@@ -56,24 +91,15 @@ export HTTPS_PROXY https_proxy HTTP_PROXY http_proxy
 echo "Using proxy: ${HTTPS_PROXY}"
 
 # ----------------------------------------------------------------------
-# PATCH 1: Update stdenv.lib → lib and ensure nix-prefetch-url exists
+# Compose default build or allow targeting a specific attribute
 # ----------------------------------------------------------------------
-cat > build-docker.nix << 'EOF2'
+if [ -z "$TARGET_ATTR" ]; then
+  cat > build-docker.nix << 'EOF2'
 let
-  overlays = [
-    (self: super: {
-      cabal2nix = super.cabal2nix.overrideAttrs (old: {
-        nativeBuildInputs = (old.nativeBuildInputs or []) ++ [ super.nix-prefetch-scripts ];
-        buildInputs = (old.buildInputs or []) ++ [ super.nix-prefetch-scripts ];
-      });
-    })
-  ];
-  nixpkgs = import <nixpkgs> { inherit overlays; };
+  system = builtins.currentSystem;
+  self = import ./. { inherit system; };
+  nixpkgs = self.obelisk.nixpkgs;
   lib = nixpkgs.lib;  # avoid stdenv.lib deprecation warning
-  self = import ./. { inherit nixpkgs system; };
-  obelisk = import ./.obelisk/impl {
-    system = builtins.currentSystem;
-  };
   configs = nixpkgs.stdenv.mkDerivation {
     name = "configs";
     src = ./config;
@@ -83,54 +109,15 @@ let
     '';
   };
 in
-  nixpkgs.dockerTools.buildImage {
-    name = "carlosa8c/hydra-pay";
-    tag = "latest";
-    keepContentsDirlinks = true;
-
-    copyToRoot = nixpkgs.buildEnv {
-      name = "root";
-      paths = [
-        nixpkgs.git
-        self.hydra-pay
-        nixpkgs.bashInteractive
-        nixpkgs.iana-etc
-        nixpkgs.cacert
-        nixpkgs.nix-prefetch-scripts
-      ];
-      pathsToLink = [ "/bin" ];
-    };
-
-    runAsRoot = ''
-      #!${nixpkgs.runtimeShell}
-      ${nixpkgs.dockerTools.shadowSetup}
-      mkdir -p hydra-pay/config
-      ln -sft /hydra-pay/config ${configs}/*
-      groupadd -r hydra-pay
-      useradd -r -g hydra-pay hydra-pay
-      chown -R hydra-pay:hydra-pay /hydra-pay
-    '';
-
-    config = {
-      Env = [
-        ("PATH=" + builtins.concatStringsSep(":")(
-          [ "/hydrapay" "/bin" ]
-          ++ map (pkg: "${pkg}/bin") nixpkgs.stdenv.initialPath
-        ))
-        "LANG=C.UTF-8"
-        "NETWORK=preprod"
-        "HTTPS_PROXY=http://http-proxy.tumblr.net:8080"
-        "https_proxy=http://http-proxy.tumblr.net:8080"
-        "HTTP_PROXY=http://http-proxy.tumblr.net:8080"
-        "http_proxy=http://http-proxy.tumblr.net:8080"
-      ];
-      Cmd = [ "sh" "-c" "/bin/hydra-pay instance $NETWORK" ];
-      WorkingDir = "/hydra-pay";
-      Expose = 8010;
-      User = "hydra-pay:hydra-pay";
-    };
+  nixpkgs.buildEnv {
+    name = "hydra-pay-env";
+    paths = [
+      self.hydra-pay
+      configs
+    ];
   }
 EOF2
+fi
 
 # ----------------------------------------------------------------------
 # Persistent volumes for speed
@@ -149,63 +136,61 @@ echo "Using volumes: /nix -> $NIX_VOLUME, /root/.cache/nix -> $NIX_CACHE_VOLUME"
 echo "Starting NixOS container for build..."
 
 docker run --rm \
+  ${DOCKER_PLATFORM:+--platform ${DOCKER_PLATFORM}} \
+  ${DOCKER_PRIVILEGED:-} \
   --security-opt seccomp=unconfined \
   -v "$PWD:/work" \
   -v "$NIX_VOLUME:/nix" \
   -v "$NIX_CACHE_VOLUME:/root/.cache/nix" \
   -w /work \
   ${GITHUB_TOKEN:+-e GITHUB_TOKEN="$GITHUB_TOKEN"} \
+  -e NIX_SANDBOX="$NIX_SANDBOX" \
   -e NIX_BUILD_CORES="$NIX_BUILD_CORES" \
   -e NIX_MAX_JOBS="$NIX_MAX_JOBS" \
+  -e TARGET_ATTR="$TARGET_ATTR" \
   -e HTTPS_PROXY="$HTTPS_PROXY" -e https_proxy="$https_proxy" \
   -e HTTP_PROXY="$HTTP_PROXY" -e http_proxy="$http_proxy" \
   nixos/nix \
-  bash -lc "set -Eeuo pipefail; set -x; \
-    echo '==> Initial PATH:' \"\$PATH\"; \
-    command -v nix-prefetch-url >/dev/null 2>&1 || echo 'nix-prefetch-url not on PATH yet'; \
-    ls -al /root/.nix-profile/bin 2>/dev/null || echo '/root/.nix-profile/bin not present'; \
-    mkdir -p /etc/nix; \
-    { \
-      echo 'experimental-features = nix-command flakes'; \
-      echo \"max-jobs = ${NIX_MAX_JOBS}\"; \
-      echo \"cores = ${NIX_BUILD_CORES}\"; \
-      echo 'keep-outputs = true'; \
-      echo 'keep-derivations = true'; \
-      echo 'sandbox = false'; \
-      echo 'narinfo-cache-positive-ttl = 3600'; \
-      echo \"substituters = ${SUBSTITUTERS:-https://cache.nixos.org/}\"; \
-      echo \"trusted-public-keys = ${TRUSTED_PUBLIC_KEYS:-cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=}\"; \
-      echo 'trusted-users = root'; \
-    } >> /etc/nix/nix.conf; \
-    if [ -n \"${GITHUB_TOKEN:-}\" ]; then \
-      echo \"access-tokens = github.com=${GITHUB_TOKEN}\" >> /etc/nix/nix.conf; \
-      printf 'machine api.github.com\n  login x-access-token\n  password %s\nmachine codeload.github.com\n  login x-access-token\n  password %s\n' \"${GITHUB_TOKEN}\" \"${GITHUB_TOKEN}\" > /etc/nix/netrc; \
-      echo 'netrc-file = /etc/nix/netrc' >> /etc/nix/nix.conf; \
-    fi; \
-  cat <<'EOS' >/tmp/inner-build.sh; \
-#!/usr/bin/env bash
-set -Eeuo pipefail
-set -x
-echo '==> PATH inside nix-shell:' "\$PATH"
-command -v nix-prefetch-url >/dev/null 2>&1 || { echo 'nix-prefetch-url missing inside nix-shell preflight'; exit 1; }
-nix-build -j "\${NIX_MAX_JOBS}" build-docker.nix --out-link result.tar --show-trace
-EOS
-    chmod +x /tmp/inner-build.sh; \
-    nix-shell -p nix-prefetch-scripts cabal2nix git cacert --command /tmp/inner-build.sh"
+  bash -lc 'bash /work/.ci/container-init.sh'
 
 # ----------------------------------------------------------------------
-# Tag and push if built successfully
+# Build Docker image using host Docker
 # ----------------------------------------------------------------------
-if [ -f result.tar ]; then
-  echo "Loading image from result.tar..."
-  LOAD_OUT=$(docker load < result.tar)
-  echo "$LOAD_OUT"
-  loaded_ref=$(echo "$LOAD_OUT" | awk -F': ' '/Loaded image:/ {print $2}' | tail -n1)
-  [ -z "$loaded_ref" ] && loaded_ref="${NAME}:latest"
-  echo "Tagging ${loaded_ref} -> ${NAME}:${VERSION}"
-  docker tag "$loaded_ref" "${NAME}:${VERSION}"
+if [ -d result ]; then
+  echo "Creating Dockerfile..."
+  cat > Dockerfile << 'EOF'
+FROM nixos/nix:latest
+
+# Copy built hydra-pay and configs
+COPY result/ /hydra-pay/
+
+# Set up user and permissions
+RUN groupadd -r hydra-pay && \
+    useradd -r -g hydra-pay hydra-pay && \
+    chown -R hydra-pay:hydra-pay /hydra-pay
+
+# Set environment
+ENV PATH=/hydra-pay/bin:$PATH \
+    LANG=C.UTF-8 \
+    NETWORK=preprod \
+    HTTPS_PROXY=http://http-proxy.tumblr.net:8080 \
+    https_proxy=http://http-proxy.tumblr.net:8080 \
+    HTTP_PROXY=http://http-proxy.tumblr.net:8080 \
+    http_proxy=http://http-proxy.tumblr.net:8080
+
+# Expose port and set working directory
+EXPOSE 8010
+WORKDIR /hydra-pay
+USER hydra-pay
+
+# Default command
+CMD ["sh", "-c", "/hydra-pay/bin/hydra-pay instance $NETWORK"]
+EOF
+
+  echo "Building Docker image ${NAME}:${VERSION}..."
+  docker build -t "${NAME}:${VERSION}" .
   if [ "${PUSH_LATEST}" = "1" ]; then
-    docker tag "$loaded_ref" "${NAME}:latest"
+    docker tag "${NAME}:${VERSION}" "${NAME}:latest"
   fi
 
   if [ "${DOCKER_PUSH}" = "1" ]; then
@@ -217,5 +202,5 @@ if [ -f result.tar ]; then
     echo "Skipping push (set DOCKER_PUSH=1 or pass --push to enable)."
   fi
 else
-  echo "Build did not produce result.tar; skipping load/push." >&2
+  echo "Build did not produce result directory; skipping Docker build." >&2
 fi
