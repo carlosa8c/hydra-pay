@@ -1,8 +1,8 @@
 {
-  "owner": "input-output-hk",
+  "owner": "IntersectMBO",
   "repo": "cardano-base",
   "branch": "master",
   "private": false,
-  "rev": "0f3a867493059e650cda69e20a5cbf1ace289a57",
-  "sha256": "0p0az3sbkhb7njji8xxdrfb0yx2gc8fmrh872ffm8sfip1w29gg1"
+  "rev": "9b4b06e43e45884f6e1d9dca5436e5367f5ed439",
+  "sha256": "071grqfjnpnckrgk1fv3xhs1sjl944m7qip00hdwx2s9mxbnb9lb"
 }

@@ -46,6 +46,9 @@
                 ];
               });
             })
+            (self: super: {
+              gitMinimal = super.git;
+            })
           ];
           haskellOverlaysPre = baseOverlays.haskellOverlaysPre ++ extraOverlays.haskellOverlaysPre;
           haskellOverlaysPost = baseOverlays.haskellOverlaysPost ++ extraOverlays.haskellOverlaysPost;

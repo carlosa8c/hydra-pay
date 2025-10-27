@@ -77,7 +77,7 @@ args@{ rpSetup, obelisk, ... }:
             doBenchmark = false;
           });
 
-          cardano-api = haskellLib.overrideCabal (self.callCabal2nix "cardano-api" (deps.cardano-node + "/cardano-api") {}) (drv: {
+          cardano-api = haskellLib.overrideCabal (self.callCabal2nix "cardano-api" (deps.cardano-node + "/cardano-api") { nativeBuildInputs = [ pkgs.nix ]; }) (drv: {
             doCheck = false;
             preConfigure = ''
                     # cardano-api with Vasil update stopped exposing certain functions we make use of. This exposes them again.

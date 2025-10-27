@@ -1,8 +1,8 @@
 {
-  "owner": "input-output-hk",
+  "owner": "IntersectMBO",
   "repo": "Win32-network",
   "branch": "master",
   "private": false,
-  "rev": "3825d3abf75f83f406c1f7161883c438dac7277d",
-  "sha256": "19wahfv726fa3mqajpqdqhnl9ica3xmf68i254q45iyjcpj1psqx"
+  "rev": "fec6d7bdfec15d9bd1033ae5ed25f4385f4f1237",
+  "sha256": "00z8hc3zb8lsa2xq0jjzqxcdx3398yw0f8wkaj38mgh7fm1d9a3n"
 }

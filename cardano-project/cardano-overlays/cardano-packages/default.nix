@@ -57,10 +57,10 @@ in self: super: {
   # ouroboros-network = haskellLib.dontCheck (haskellLib.doJailbreak (self.callCabal2nix "ouroboros-network" (deps.ouroboros-network + "/ouroboros-network") {}));
   ouroboros-network-framework = haskellLib.dontCheck (haskellLib.doJailbreak (self.callCabal2nix "ouroboros-network-framework" (deps.ouroboros-network + "/ouroboros-network-framework") {}));
   ouroboros-network-testing = self.callCabal2nix "ouroboros-network-testing" (deps.ouroboros-network + "/ouroboros-network-testing") {};
-  ouroboros-consensus = haskellLib.doJailbreak (self.callCabal2nix "ouroboros-consensus" (deps.ouroboros-network + "/ouroboros-consensus") {});
-  ouroboros-consensus-byron = haskellLib.doJailbreak (self.callCabal2nix "ouroboros-consensus-byron" (deps.ouroboros-network + "/ouroboros-consensus-byron") {});
-  ouroboros-consensus-shelley = haskellLib.doJailbreak (self.callCabal2nix "ouroboros-consensus-shelley" (deps.ouroboros-network + "/ouroboros-consensus-shelley") {});
-  ouroboros-consensus-cardano = haskellLib.doJailbreak (self.callCabal2nix "ouroboros-consensus-cardano" (deps.ouroboros-network + "/ouroboros-consensus-cardano") {});
+  ouroboros-consensus = haskellLib.doJailbreak (self.callCabal2nix "ouroboros-consensus" (deps.ouroboros-consensus + "/ouroboros-consensus") {});
+  ouroboros-consensus-byron = haskellLib.doJailbreak (self.callCabal2nix "ouroboros-consensus-byron" (deps.ouroboros-consensus + "/ouroboros-consensus-byron") {});
+  ouroboros-consensus-shelley = haskellLib.doJailbreak (self.callCabal2nix "ouroboros-consensus-shelley" (deps.ouroboros-consensus + "/ouroboros-consensus-shelley") {});
+  ouroboros-consensus-cardano = haskellLib.doJailbreak (self.callCabal2nix "ouroboros-consensus-cardano" (deps.ouroboros-consensus + "/ouroboros-consensus-cardano") {});
   monoidal-synchronisation = self.callCabal2nix "monoidal-synchronisation" (deps.ouroboros-network + "/monoidal-synchronisation") {};
   network-mux = haskellLib.dontCheck (haskellLib.doJailbreak (self.callCabal2nix "network-mux" (deps.ouroboros-network + "/network-mux") {}));
   ntp-client = haskellLib.dontCheck (haskellLib.doJailbreak (self.callCabal2nix "ntp-client" (deps.ouroboros-network + "/ntp-client") {}));
@@ -116,6 +116,7 @@ in self: super: {
   io-classes = self.callCabal2nix "io-classes" (deps.io-sim + "/io-classes") {};
   io-sim = self.callCabal2nix "io-sim" (deps.io-sim + "/io-sim") {};
   strict-stm = self.callCabal2nix "strict-stm" (deps.io-sim + "/strict-stm") {};
+  strict-checked-vars = self.callCabal2nix "strict-checked-vars" deps.strict-checked-vars {};
 
   # typed-protocols
   typed-protocols = self.callCabal2nix "typed-protocols" (deps.typed-protocols + "/typed-protocols") {};
