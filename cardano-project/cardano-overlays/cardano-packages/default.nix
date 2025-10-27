@@ -11,14 +11,14 @@ let
     sha256 = "071grqfjnpnckrgk1fv3xhs1sjl944m7qip00hdwx2s9mxbnb9lb";
   };
 in self: super: {
-  heapwords = self.callCabal2nix "heapwords" (pkgs.runCommand "heapwords-src" {} "cp -r ${cardanoBaseSrc}/heapwords $out") {};
-  memory-pool = self.callHackage "memory-pool" {};
-  mempack = self.callHackage "mempack" {};
-
   # cardano-prelude
   # cardano-prelude = self.callCabal2nix "cardano-prelude" (deps.cardano-prelude + "/cardano-prelude") {};
   # cardano-prelude-test = self.callCabal2nix "cardano-prelude-test" (deps.cardano-prelude + "/cardano-prelude-test") {};
 
+  # cardano-base subpackages from cardanoBaseSrc (same commit as thunk)
+  heapwords = self.callCabal2nix "heapwords" (cardanoBaseSrc + "/heapwords") {};
+  cardano-strict-containers = haskellLib.dontCheck (self.callCabal2nix "cardano-strict-containers" (cardanoBaseSrc + "/cardano-strict-containers") {});
+  
   # cardano-base
   cardano-binary = haskellLib.dontCheck (haskellLib.enableCabalFlag (
     self.callPackage ./generated/cardano-binary.nix {}
@@ -27,8 +27,6 @@ in self: super: {
     self.callCabal2nixWithOptions "cardano-binary-test" cardanoBaseSrc "--subpath cardano-binary/test" {}
   ) "development";
   cardano-slotting = self.callCabal2nix "cardano-slotting" (cardanoBaseSrc + "/cardano-slotting") {};
-  # strict-containers = self.callHackage "strict-containers" "0.1.0.0" {};
-  cardano-strict-containers = haskellLib.dontCheck (self.callCabal2nix "cardano-strict-containers" (cardanoBaseSrc + "/cardano-strict-containers") {});
   base-deriving-via = self.callCabal2nix "base-deriving-via" (cardanoBaseSrc + "/base-deriving-via") {};
   orphans-deriving-via = self.callCabal2nix "orphans-deriving-via" (cardanoBaseSrc + "/orphans-deriving-via") {};
   measures = self.callCabal2nix "measures" (cardanoBaseSrc + "/measures") {};
