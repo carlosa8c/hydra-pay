@@ -26,14 +26,23 @@ args@{ rpSetup, obelisk, ... }:
                 --replace "intCastEq @Int64 @Int" "const @Int @Int64 0"
             '';
           });
+          # Avoid brittle dependency pins to a concrete installedId of
+          # plutus-core:plutus-core-testlib. Instead, disable tests/benches so
+          # Cabal won't try to resolve that sub-library at configure time.
           plutus-tx = haskellLib.overrideCabal super.plutus-tx (drv: {
+            doCheck = false;
+            doBenchmark = false;
             configureFlags = (drv.configureFlags or []) ++ [
-              # NOTE: see link for details
-              # https://3.basecamp.com/4757487/buckets/24531883/messages/5274529248
-              (if pkgs.stdenv.isDarwin
-                then "--dependency=plutus-core:plutus-core-testlib=plutus-core-1.0.0.0-CG0eKwFyc06A6OsGzUyWcc-plutus-core-testlib"
-                else "--dependency=plutus-core:plutus-core-testlib=plutus-core-1.0.0.0-ErmoQby7JQH3z6wFaYIRDg-plutus-core-testlib")
+              "--disable-tests"
+              "--disable-benchmarks"
             ];
+            # Remove references to the test/benchmark suites to avoid cabal2nix
+            # generating installed-id pins that don't exist in this build.
+            postPatch = (drv.postPatch or "") + ''
+              sed -i.bak '/^test-suite /,/^$/d' plutus-tx.cabal
+              sed -i.bak '/^benchmark /,/^$/d' plutus-tx.cabal
+              rm -f plutus-tx.cabal.bak
+            '';
           });
         })
   ];

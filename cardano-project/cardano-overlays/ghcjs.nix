@@ -57,11 +57,19 @@ in self: super: {
   #   '';
   # });
 
-  # help find the plutus-core internal lib; Also due to there being changes for ghcjs on plutus-core the package-id is different than the ghc version
+  # Avoid depending on plutus-core:plutus-core-testlib by disabling tests/benches
   plutus-tx = haskellLib.overrideCabal super.plutus-tx (drv: {
-    # NOTE: see link for details
-    # https://3.basecamp.com/4757487/buckets/24531883/messages/5274529248
-    configureFlags = [ "--dependency=plutus-core:plutus-core-testlib=plutus-core-1.0.0.0-APFc5Xf8gyKEoZsNwPv0Bi-plutus-core-testlib" ];
+    doCheck = false;
+    doBenchmark = false;
+    configureFlags = (drv.configureFlags or []) ++ [
+      "--disable-tests"
+      "--disable-benchmarks"
+    ];
+    postPatch = (drv.postPatch or "") + ''
+      sed -i.bak '/^test-suite /,/^$/d' plutus-tx.cabal
+      sed -i.bak '/^benchmark /,/^$/d' plutus-tx.cabal
+      rm -f plutus-tx.cabal.bak
+    '';
   });
 
   # cryptonite with entropy support for ghcjs.

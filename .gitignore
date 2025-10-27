@@ -1,3 +1,17 @@
+# Local secrets/tokens (do NOT commit real tokens)
+.github_token
+config/github_token
+.secrets/
+.env
+
+# Build artifacts
+result
+result.tar
+build-docker.nix
+
+# Nix/direnv noise (if used)
+.direnv/
+*.drv
 .attr-cache
 .cabal-sandbox
 *.hi
