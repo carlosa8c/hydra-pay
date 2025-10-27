@@ -1,5 +1,6 @@
 { system ? builtins.currentSystem
 # , android-build ? false
+, nixpkgs ? import <nixpkgs> {}
 , rpSetup ? import ((import ./.obelisk/impl {}).path + "/dep/reflex-platform") {}
 
 , obelisk-src ? rpSetup.hackGet ./.obelisk/impl
@@ -23,6 +24,7 @@
       in
       import ((import ./.obelisk/impl {}).path + "/dep/reflex-platform")
         (args // {
+          inherit nixpkgs;
           __useNewerCompiler = true;
           useTextJSString = false;
           nixpkgsOverlays = let deps = rpSetup.nixpkgs.thunkSet ./cardano-overlays/dep; in (args.nixpkgsOverlays or []) ++ [

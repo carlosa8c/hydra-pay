@@ -60,9 +60,17 @@ echo "Using proxy: ${HTTPS_PROXY}"
 # ----------------------------------------------------------------------
 cat > build-docker.nix << 'EOF2'
 let
-  nixpkgs = import <nixpkgs> {};
+  overlays = [
+    (self: super: {
+      cabal2nix = super.cabal2nix.overrideAttrs (old: {
+        nativeBuildInputs = (old.nativeBuildInputs or []) ++ [ super.nix-prefetch-scripts ];
+        buildInputs = (old.buildInputs or []) ++ [ super.nix-prefetch-scripts ];
+      });
+    })
+  ];
+  nixpkgs = import <nixpkgs> { inherit overlays; };
   lib = nixpkgs.lib;  # avoid stdenv.lib deprecation warning
-  self = import ./. { system = builtins.currentSystem; };
+  self = import ./. { inherit nixpkgs system; };
   obelisk = import ./.obelisk/impl {
     system = builtins.currentSystem;
   };
@@ -152,9 +160,10 @@ docker run --rm \
   -e HTTPS_PROXY="$HTTPS_PROXY" -e https_proxy="$https_proxy" \
   -e HTTP_PROXY="$HTTP_PROXY" -e http_proxy="$http_proxy" \
   nixos/nix \
-  bash -lc "set -Eeuo pipefail; \
-    nix-env -iA nixpkgs.nix-prefetch-scripts nixpkgs.cabal2nix nixpkgs.git nixpkgs.cacert >/dev/null; \
-  if [ -f /root/.nix-profile/etc/profile.d/nix.sh ]; then . /root/.nix-profile/etc/profile.d/nix.sh; elif [ -d /root/.nix-profile/bin ]; then export PATH=\"/root/.nix-profile/bin:$PATH\"; fi; \
+  bash -lc "set -Eeuo pipefail; set -x; \
+    echo '==> Initial PATH:' \"\$PATH\"; \
+    command -v nix-prefetch-url >/dev/null 2>&1 || echo 'nix-prefetch-url not on PATH yet'; \
+    ls -al /root/.nix-profile/bin 2>/dev/null || echo '/root/.nix-profile/bin not present'; \
     mkdir -p /etc/nix; \
     { \
       echo 'experimental-features = nix-command flakes'; \
@@ -173,7 +182,16 @@ docker run --rm \
       printf 'machine api.github.com\n  login x-access-token\n  password %s\nmachine codeload.github.com\n  login x-access-token\n  password %s\n' \"${GITHUB_TOKEN}\" \"${GITHUB_TOKEN}\" > /etc/nix/netrc; \
       echo 'netrc-file = /etc/nix/netrc' >> /etc/nix/nix.conf; \
     fi; \
-    nix-build -j \"${NIX_MAX_JOBS}\" build-docker.nix --out-link result.tar --show-trace"
+  cat <<'EOS' >/tmp/inner-build.sh; \
+#!/usr/bin/env bash
+set -Eeuo pipefail
+set -x
+echo '==> PATH inside nix-shell:' "\$PATH"
+command -v nix-prefetch-url >/dev/null 2>&1 || { echo 'nix-prefetch-url missing inside nix-shell preflight'; exit 1; }
+nix-build -j "\${NIX_MAX_JOBS}" build-docker.nix --out-link result.tar --show-trace
+EOS
+    chmod +x /tmp/inner-build.sh; \
+    nix-shell -p nix-prefetch-scripts cabal2nix git cacert --command /tmp/inner-build.sh"
 
 # ----------------------------------------------------------------------
 # Tag and push if built successfully

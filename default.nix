@@ -1,6 +1,7 @@
 { system ? builtins.currentSystem
+, nixpkgs ? import <nixpkgs> {}
 , cardanoProject ? import ./cardano-project {
-    inherit system;
+    inherit system nixpkgs;
   }
 }:
 with cardanoProject;
