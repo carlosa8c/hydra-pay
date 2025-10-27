@@ -2,7 +2,22 @@
 , ...
 }:
 
-let deps = pkgs.thunkSet ./dep;
+let
+  deps = pkgs.thunkSet ./dep;
+  # Avoid cabal2nix scanning cabal.project in the repo root by filtering it out.
+  cleanCardanoBase = pkgs.lib.cleanSourceWith {
+    src = deps.cardano-base;
+    filter = path: type:
+      let base = builtins.baseNameOf path; in
+      !(base == "cabal.project" || base == "cabal.project.freeze" || base == "cabal.project.local");
+  };
+  # Materialize a plain directory in the store (not a fetcher) so cabal2nix
+  # treats it as a local source tree and doesn't try to re-fetch.
+  cardanoBaseSrc = pkgs.runCommand "cardano-base-src" { src = cleanCardanoBase; } ''
+    mkdir -p "$out"
+    # Copy the entire tree including dotfiles without preserving modes that can upset builders
+    cp -rT "$src" "$out"
+  '';
 in self: super: {
 
   # cardano-prelude
@@ -10,13 +25,18 @@ in self: super: {
   # cardano-prelude-test = self.callCabal2nix "cardano-prelude-test" (deps.cardano-prelude + "/cardano-prelude-test") {};
 
   # cardano-base
-  cardano-binary = haskellLib.enableCabalFlag (self.callCabal2nix "cardano-binary" (deps.cardano-base + "/binary") {}) "development";
-  cardano-binary-test = haskellLib.enableCabalFlag (self.callCabal2nix "cardano-binary-test" (deps.cardano-base + "/binary/test") {}) "development";
-  cardano-slotting = self.callCabal2nix "cardano-slotting" (deps.cardano-base + "/slotting") {};
-  strict-containers = self.callCabal2nix "strict-containers" (deps.cardano-base + "/strict-containers") {};
-  base-deriving-via = self.callCabal2nix "base-deriving-via" (deps.cardano-base + "/base-deriving-via") {};
-  orphans-deriving-via = self.callCabal2nix "orphans-deriving-via" (deps.cardano-base + "/orphans-deriving-via") {};
-  measures = self.callCabal2nix "measures" (deps.cardano-base + "/measures") {};
+  # Use callCabal2nix on a realized directory to avoid VCS/re-fetch confusion.
+  cardano-binary = haskellLib.enableCabalFlag (
+    self.callCabal2nix "cardano-binary" (cardanoBaseSrc + "/binary") {}
+  ) "development";
+  cardano-binary-test = haskellLib.enableCabalFlag (
+    self.callCabal2nix "cardano-binary-test" (cardanoBaseSrc + "/binary/test") {}
+  ) "development";
+  cardano-slotting = self.callCabal2nix "cardano-slotting" (cardanoBaseSrc + "/slotting") {};
+  strict-containers = self.callCabal2nix "strict-containers" (cardanoBaseSrc + "/strict-containers") {};
+  base-deriving-via = self.callCabal2nix "base-deriving-via" (cardanoBaseSrc + "/base-deriving-via") {};
+  orphans-deriving-via = self.callCabal2nix "orphans-deriving-via" (cardanoBaseSrc + "/orphans-deriving-via") {};
+  measures = self.callCabal2nix "measures" (cardanoBaseSrc + "/measures") {};
 
   # cardano-ledger
   # tests fail on some env var not being set

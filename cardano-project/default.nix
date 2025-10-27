@@ -74,6 +74,8 @@
                 cat > $out/bin/cabal2nix <<'EOS'
                 #!/usr/bin/env bash
                 set -euo pipefail
+                # Avoid proxies breaking file:// URLs used by cabal2nix for local Nix store paths
+                unset http_proxy HTTP_PROXY https_proxy HTTPS_PROXY all_proxy ALL_PROXY no_proxy NO_PROXY || true
                 export PATH="$out/bin:${super.nix}/bin:${super.coreutils}/bin:${super.findutils}/bin:${super.gnused}/bin:${super.gnugrep}/bin:${super.gnutar}/bin:${super.xz}/bin:${super.gzip}/bin:${super.bzip2}/bin:${super.curl.bin}/bin:$PATH"
                 exec ${super.cabal2nix}/bin/cabal2nix "$@"
                 EOS
@@ -94,6 +96,8 @@
                   cat > $out/bin/cabal2nix <<'EOS'
                   #!/usr/bin/env bash
                   set -euo pipefail
+                  # Avoid proxies breaking file:// URLs used by cabal2nix for local Nix store paths
+                  unset http_proxy HTTP_PROXY https_proxy HTTPS_PROXY all_proxy ALL_PROXY no_proxy NO_PROXY || true
                   export PATH="$out/bin:${super.nix}/bin:${super.coreutils}/bin:${super.findutils}/bin:${super.gnused}/bin:${super.gnugrep}/bin:${super.gnutar}/bin:${super.xz}/bin:${super.gzip}/bin:${super.bzip2}/bin:${super.curl.bin}/bin:$PATH"
                   exec ${super.buildPackages.cabal2nix}/bin/cabal2nix "$@"
                   EOS
