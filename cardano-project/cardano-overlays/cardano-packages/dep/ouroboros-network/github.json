@@ -1,8 +1,9 @@
 {
   "owner": "IntersectMBO",
   "repo": "ouroboros-network",
-  "branch": "main",
+  "branch": "master",
   "private": false,
-  "rev": "879683d42157ba68de3e4a1498a5c76228fa0a5a",
-  "sha256": "0vmcacvnpjmfsd7rwmpfp99pii697x79pyiy2v0hnfhp24i79i3n"
+  "rev": "4eb975086ec5ab69a6e189fd98c086bd67fed93c",
+  "sha256": "09i3z233dsbqamsj0k6ppkj23hkfwzx8ry96a173wiy813va8aqh"
 }
+

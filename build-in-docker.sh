@@ -139,6 +139,7 @@ docker run --rm \
   ${DOCKER_PLATFORM:+--platform ${DOCKER_PLATFORM}} \
   ${DOCKER_PRIVILEGED:-} \
   --security-opt seccomp=unconfined \
+  -m 16g \
   -v "$PWD:/work" \
   -v "$NIX_VOLUME:/nix" \
   -v "$NIX_CACHE_VOLUME:/root/.cache/nix" \

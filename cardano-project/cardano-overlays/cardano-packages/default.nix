@@ -7,8 +7,8 @@ let
   cardanoBaseSrc = pkgs.fetchFromGitHub {
     owner = "IntersectMBO";
     repo = "cardano-base";
-    rev = "9b4b06e43e45884f6e1d9dca5436e5367f5ed439";
-    sha256 = "071grqfjnpnckrgk1fv3xhs1sjl944m7qip00hdwx2s9mxbnb9lb";
+    rev = "994d5b42e28b98e4a4a53607182b93b6390e5487";  # cardano-crypto-class-2.1.5.0
+    sha256 = "0mnav1dxrm24xk9m3s2y49lg1zppjmh7jkhmawnkb3dqcib6kqh7";
   };
 in self: super: {
   # cardano-prelude
@@ -20,9 +20,11 @@ in self: super: {
   cardano-strict-containers = haskellLib.dontCheck (self.callCabal2nix "cardano-strict-containers" (cardanoBaseSrc + "/cardano-strict-containers") {});
   
   # cardano-base
-  cardano-binary = haskellLib.dontCheck (haskellLib.enableCabalFlag (
-    self.callPackage ./generated/cardano-binary.nix {}
-  ) "development");
+  cardano-binary = haskellLib.dontCheck (haskellLib.doJailbreak (haskellLib.enableCabalFlag (
+    haskellLib.overrideCabal (self.callPackage ./generated/cardano-binary.nix {}) (drv: {
+      src = cardanoBaseSrc + "/cardano-binary";
+    })
+  ) "development"));
   cardano-binary-test = haskellLib.enableCabalFlag (
     self.callCabal2nixWithOptions "cardano-binary-test" cardanoBaseSrc "--subpath cardano-binary/test" {}
   ) "development";
@@ -291,7 +293,7 @@ in self: super: {
   # allow newer QuickCheck/hspec
   time-compat = self.callHackage "time-compat" "1.9.6" {};
   strict = self.callHackage "strict" "0.4.0.1" {};
-  vector = self.callHackage "vector" "0.12.3.1" {};
+  vector = haskellLib.dontCheck (haskellLib.dontHaddock (haskellLib.dontBenchmark (self.callHackage "vector" "0.12.3.1" {})));
   attoparsec = haskellLib.doJailbreak super.attoparsec;
   random = haskellLib.dontCheck (self.callHackage "random" "1.2.0" {});
   generic-random = haskellLib.dontCheck (self.callHackage "generic-random" "1.4.0.0" {});

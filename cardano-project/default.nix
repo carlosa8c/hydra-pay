@@ -152,10 +152,10 @@ cardanoProjectDef = ({ nixpkgs, pkgs, hackGet, ... }@args: let
   userSpaceOverrides = (self: super: {
     time-compat = haskellLib.dontCheck super.time-compat;
 
-    cardano-crypto-class = haskellLib.overrideCabal (self.callCabal2nix "cardano-crypto-class" (deps'.cardano-base + "/cardano-crypto-class") { libsodium = pkgs.libsodium-vrf; libblst = null; crypton = null; memory-pool = null; mempack = null; }) (drv: {
+    cardano-crypto-class = haskellLib.doJailbreak (haskellLib.overrideCabal (self.callCabal2nix "cardano-crypto-class" (deps'.cardano-base + "/cardano-crypto-class") { libsodium = pkgs.libsodium-vrf; libblst = pkgs.blst; }) (drv: {
       pkg-configDepends = (drv.pkg-configDepends or []) ++ [pkgs.secp256k1];
       buildTools = [ pkgs.pkg-config ];
-    });
+    }));
 
     cardano-crypto-praos = haskellLib.overrideCabal ((self.callCabal2nix "cardano-crypto-praos" (deps'.cardano-base + "/cardano-crypto-praos") {}).override { libsodium = pkgs.libsodium-vrf; }) (drv: {
       buildTools = [ pkgs.pkg-config ];
