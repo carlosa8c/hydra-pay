@@ -48,6 +48,26 @@
               in {
               time-compat = haskellLib.dontCheck super.time-compat;
               libsodium-vrf = self.callPackage (deps.iohk-nix + "/overlays/crypto/libsodium.nix") {};
+              # Add blst package from the blst repository
+              blst = self.callPackage ({stdenv, fetchFromGitHub}: stdenv.mkDerivation rec {
+                pname = "blst";
+                version = "0.3.14";
+                src = fetchFromGitHub {
+                  owner = "supranational";
+                  repo = "blst";
+                  rev = "v${version}";
+                  sha256 = "sha256-IlbNMLBjs/dvGogcdbWQIL+3qwy7EXJbIDpo4xBd4bY=";
+                };
+                buildPhase = ''
+                  ./build.sh
+                '';
+                installPhase = ''
+                  mkdir -p $out/{include,lib}
+                  cp libblst.a $out/lib/
+                  cp bindings/blst.h $out/include/
+                  cp bindings/blst_aux.h $out/include/
+                '';
+              }) {};
               secp256k1 = super.secp256k1.overrideAttrs (drv: {
                 name = "secp256k1-unstable-2022-02-06";
                 src = self.fetchFromGitHub {

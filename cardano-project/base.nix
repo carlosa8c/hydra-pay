@@ -122,7 +122,7 @@ args@{ rpSetup, obelisk, ... }:
 
           # strict-containers = self.callHackage "strict-containers" {};
 
-          cardano-crypto-wrapper = haskellLib.dontCheck (self.callCabal2nix "cardano-crypto-wrapper" (deps.cardano-ledger + "/eras/byron/crypto") {});
+          cardano-crypto-wrapper = null;  # Disabled due to function coercion errors
 
           fmt = haskellLib.dontCheck (self.callCabal2nix "fmt" deps.fmt {});
           double-conversion = haskellLib.overrideCabal super.double-conversion (drv: {

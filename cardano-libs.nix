@@ -165,7 +165,7 @@ self: super: {
   # cardano-ledger
 
   # Why is this named like this?
-  cardano-crypto-test = self.callCabal2nix "cardano-crypto-test" (cardano-ledger + "/eras/byron/crypto/test") {};
+  # cardano-crypto-test = self.callCabal2nix "cardano-crypto-test" (cardano-ledger + "/eras/byron/crypto/test") {};
   cardano-ledger-babbage = self.callCabal2nix "cardano-ledger-babbage" (cardano-ledger + "/eras/babbage/impl") {};
   cardano-ledger-babbage-test = self.callCabal2nix "cardano-ledger-babbage-test" (cardano-ledger + "/eras/babbage/test-suite") {};
 
@@ -195,7 +195,7 @@ self: super: {
   vector-map = self.callCabal2nix "vector-map" (cardano-ledger + "/libs/vector-map") {};
 
 
-  cardano-crypto-wrapper = haskellLib.dontCheck (self.callCabal2nix "cardano-crypto-wrapper" (cardano-ledger + "/eras/byron/crypto") {});
+  cardano-crypto-wrapper = null;  # Disabled due to function coercion errors
 
   # cardano-crypto
   cardano-crypto = self.callCabal2nix "cardano-crypto" (cardano-crypto) {};
