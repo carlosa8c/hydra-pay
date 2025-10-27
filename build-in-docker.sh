@@ -154,7 +154,7 @@ docker run --rm \
   nixos/nix \
   bash -lc "set -Eeuo pipefail; \
     nix-env -iA nixpkgs.nix-prefetch-scripts nixpkgs.cabal2nix nixpkgs.git nixpkgs.cacert >/dev/null; \
-  if [ -d /root/.nix-profile/bin ]; then export PATH="/root/.nix-profile/bin:$PATH"; fi; \
+  if [ -f /root/.nix-profile/etc/profile.d/nix.sh ]; then . /root/.nix-profile/etc/profile.d/nix.sh; elif [ -d /root/.nix-profile/bin ]; then export PATH=\"/root/.nix-profile/bin:$PATH\"; fi; \
     mkdir -p /etc/nix; \
     { \
       echo 'experimental-features = nix-command flakes'; \
