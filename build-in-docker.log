@@ -1,0 +1,6 @@
+==> Clearing previous build log...
+trace: Warning: `stdenv.lib` is deprecated and will be removed in the next release. Please use `lib` instead. For more information see https://github.com/NixOS/nixpkgs/issues/108938
+unpacking 'github:input-output-hk/flake-compat/7da118186435255a30b5ffeabba9629c344c0bec?narHash=sha256-wswAxyO8AJTH7d5oU8VK82yBCpqwA%2Bp6kLgpb1f1PAY%3D' into the Git cache...
+warning: error: unable to download 'https://api.github.com/repos/input-output-hk/flake-compat/tarball/7da118186435255a30b5ffeabba9629c344c0bec': Could not resolve proxy name (5) Could not resolve proxy: http-proxy.tumblr.net; retrying in 251 ms
+warning: error: unable to download 'https://api.github.com/repos/input-output-hk/flake-compat/tarball/7da118186435255a30b5ffeabba9629c344c0bec': Could not resolve proxy name (5) Could not resolve proxy: http-proxy.tumblr.net; retrying in 668 ms
+warning: error: unable to download 'https://api.github.com/repos/input-output-hk/flake-compat/tarball/7da118186435255a30b5ffeabba9629c344c0bec': Could not resolve proxy name (5) Could not resolve proxy: http-proxy.tumblr.net; retrying in 1059 ms

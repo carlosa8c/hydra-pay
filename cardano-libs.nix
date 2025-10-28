@@ -176,12 +176,12 @@ self: super: {
   cardano-ledger-shelley-test = self.callCabal2nix "cardano-ledger-shelley-test" (cardano-ledger + "/eras/shelley/test-suite") {};
 
   cardano-ledger-byron = self.callCabal2nix "cardano-ledger-byron" (cardano-ledger + "/eras/byron/ledger/impl") {};
-  cardano-ledger-byron-test = self.callCabal2nix "cardano-ledger-byron-test" (cardano-ledger + "/eras/byron/ledger/impl/test") {};
+  cardano-ledger-byron-test = null;  # Path doesn't exist: /eras/byron/ledger/impl/test
   byron-spec-chain = self.callCabal2nix "byron-spec-chain" (cardano-ledger + "/eras/byron/chain/executable-spec") {};
   byron-spec-ledger = self.callCabal2nix "byron-spec-ledger" (cardano-ledger + "/eras/byron/ledger/executable-spec") {};
 
-  cardano-ledger-shelley-ma = self.callCabal2nix "cardano-ledger-shelley-ma" (cardano-ledger + "/eras/shelley-ma/impl") {};
-  cardano-ledger-shelley-ma-test = self.callCabal2nix "cardano-ledger-shelley-ma-test" (cardano-ledger + "/eras/shelley-ma/test-suite") {};
+  cardano-ledger-shelley-ma = null;  # Path doesn't exist: /eras/shelley-ma/impl (legacy era)
+  cardano-ledger-shelley-ma-test = null;  # Path doesn't exist: /eras/shelley-ma/test-suite
 
   cardano-protocol-tpraos = self.callCabal2nix "cardano-protocol-tpraos" (cardano-ledger + "/libs/cardano-protocol-tpraos") {};
   cardano-ledger-core = self.callCabal2nix "cardano-ledger-core" (cardano-ledger + "/libs/cardano-ledger-core") {};

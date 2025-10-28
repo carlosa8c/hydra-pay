@@ -57,9 +57,11 @@ echo "==> nix show-config (sandbox/filter-syscalls lines):"
 nix show-config | grep -Ei 'sandbox|filter-syscalls' || true
 
 # Run the inner build (already mounted from the host)
+# Use nixpkgs-unstable for newer cabal2nix that supports cabal-version 3.4
 nix-shell \
   --option sandbox ${NIX_SANDBOX} \
   --option sandbox-fallback false \
   --option filter-syscalls false \
+  -I nixpkgs=channel:nixpkgs-unstable \
   -p nix-prefetch-scripts cabal2nix git cacert \
   --command 'bash /work/.ci/inner-build.sh'
