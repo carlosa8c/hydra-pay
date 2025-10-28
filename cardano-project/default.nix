@@ -86,8 +86,15 @@
             (self: super: {
               gitMinimal = super.git;
             })
-            (self: super: {
-              # Ensure cabal2nix PATH provides nix-prefetch-url even in minimal builder envs
+            (self: super: let
+              # Fetch newer nixpkgs (24.05) for updated cabal2nix that supports cabal-version 3.8+
+              newerNixpkgs = builtins.fetchTarball {
+                url = "https://github.com/NixOS/nixpkgs/archive/nixos-24.05.tar.gz";
+                sha256 = "1lr1h35prqkd1mkmzriwlpvxcb34kmhc9dnr48gkm8hh089hifmx";
+              };
+              newerPkgs = import newerNixpkgs { inherit (self) system; };
+            in {
+              # Use newer cabal2nix that supports cabal-version 3.8+
               cabal2nix = super.runCommand "cabal2nix-with-prefetch-shim" { } ''
                 mkdir -p $out/bin
                 # Wrapper to ensure $out/bin is first on PATH and provide prefetch helper
@@ -97,7 +104,7 @@
                 # Avoid proxies breaking file:// URLs used by cabal2nix for local Nix store paths
                 unset http_proxy HTTP_PROXY https_proxy HTTPS_PROXY all_proxy ALL_PROXY no_proxy NO_PROXY || true
                 export PATH="$out/bin:${super.nix}/bin:${super.coreutils}/bin:${super.findutils}/bin:${super.gnused}/bin:${super.gnugrep}/bin:${super.gnutar}/bin:${super.xz}/bin:${super.gzip}/bin:${super.bzip2}/bin:${super.curl.bin}/bin:$PATH"
-                exec ${super.cabal2nix}/bin/cabal2nix "$@"
+                exec ${newerPkgs.cabal2nix}/bin/cabal2nix "$@"
                 EOS
                 chmod +x $out/bin/cabal2nix
                 # Provide nix-prefetch-url in the same first PATH dir
@@ -119,7 +126,7 @@
                   # Avoid proxies breaking file:// URLs used by cabal2nix for local Nix store paths
                   unset http_proxy HTTP_PROXY https_proxy HTTPS_PROXY all_proxy ALL_PROXY no_proxy NO_PROXY || true
                   export PATH="$out/bin:${super.nix}/bin:${super.coreutils}/bin:${super.findutils}/bin:${super.gnused}/bin:${super.gnugrep}/bin:${super.gnutar}/bin:${super.xz}/bin:${super.gzip}/bin:${super.bzip2}/bin:${super.curl.bin}/bin:$PATH"
-                  exec ${super.buildPackages.cabal2nix}/bin/cabal2nix "$@"
+                  exec ${newerPkgs.cabal2nix}/bin/cabal2nix "$@"
                   EOS
                   chmod +x $out/bin/cabal2nix
                   cat > $out/bin/nix-prefetch-url <<'EOS'

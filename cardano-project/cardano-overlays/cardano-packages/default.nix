@@ -4,6 +4,8 @@
 
 let
   deps = pkgs.thunkSet ./dep;
+  parentDeps = pkgs.thunkSet ../../dep;  # For packages in cardano-project/dep/
+  topLevelDeps = pkgs.thunkSet ../../../dep;  # For packages in top-level /dep/
   cardanoBaseSrc = pkgs.fetchFromGitHub {
     owner = "IntersectMBO";
     repo = "cardano-base";
@@ -11,6 +13,10 @@ let
     sha256 = "0mnav1dxrm24xk9m3s2y49lg1zppjmh7jkhmawnkb3dqcib6kqh7";
   };
 in self: super: {
+  # Fix broken libpq: use postgresql-libpq instead
+  # Old libpq-0.4.1 is marked as broken in nixpkgs
+  libpq = super.postgresql-libpq;
+  
   # cardano-prelude
   # cardano-prelude = self.callCabal2nix "cardano-prelude" (deps.cardano-prelude + "/cardano-prelude") {};
   # cardano-prelude-test - handled inline where needed
@@ -35,17 +41,21 @@ in self: super: {
 
   # cardano-ledger
   # tests fail on some env var not being set
-  cardano-ledger-babbage = haskellLib.dontCheck (haskellLib.enableCabalFlag (haskellLib.doJailbreak (self.callCabal2nix "cardano-ledger-byron" (deps.cardano-ledger + "/eras/babbage/impl") {})) "development");
-  cardano-ledger-babbage-test = haskellLib.dontCheck (haskellLib.enableCabalFlag (haskellLib.doJailbreak (self.callCabal2nix "cardano-ledger-byron" (deps.cardano-ledger + "/eras/babbage/test-suite") {})) "development");
+  cardano-ledger-babbage = haskellLib.dontCheck (haskellLib.enableCabalFlag (haskellLib.doJailbreak (self.callCabal2nix "cardano-ledger-babbage" (deps.cardano-ledger + "/eras/babbage/impl") {})) "development");
+  cardano-ledger-babbage-test = haskellLib.dontCheck (haskellLib.enableCabalFlag (haskellLib.doJailbreak (self.callCabal2nix "cardano-ledger-babbage-test" (deps.cardano-ledger + "/eras/babbage/test-suite") {})) "development");
   cardano-ledger-byron = haskellLib.dontCheck (haskellLib.enableCabalFlag (haskellLib.doJailbreak (self.callCabal2nix "cardano-ledger-byron" (deps.cardano-ledger + "/eras/byron/ledger/impl") {})) "development");
-  cardano-ledger-byron-test = haskellLib.dontCheck (haskellLib.enableCabalFlag (haskellLib.doJailbreak (self.callCabal2nix "cardano-ledger-byron-test" (deps.cardano-ledger + "/eras/byron/ledger/impl/test") {})) "development");
-  cardano-ledger-alonzo = haskellLib.dontCheck (haskellLib.enableCabalFlag (haskellLib.doJailbreak (self.callCabal2nix "cardano-ledger-alonzo" (deps.cardano-ledger + "/eras/alonzo/impl") {})) "development");
-  # cardano-ledger-core = haskellLib.dontCheck (self.callCabal2nix "cardano-ledger-core" (deps.cardano-ledger + "/libs/cardano-ledger-core") {});
+  cardano-ledger-byron-test = null;  # Path doesn't exist in thunk: /eras/byron/ledger/impl/test
   cardano-ledger-shelley = haskellLib.dontCheck (self.callCabal2nix "cardano-ledger-shelley" (deps.cardano-ledger + "/eras/shelley/impl") {});
   cardano-ledger-shelley-test = haskellLib.dontCheck (self.callCabal2nix "cardano-ledger-shelley-test" (deps.cardano-ledger + "/eras/shelley/test-suite") {});
-  cardano-ledger-shelley-ma = haskellLib.dontCheck (self.callCabal2nix "cardano-ledger-shelley-ma" (deps.cardano-ledger + "/eras/shelley-ma/impl") {});
+  cardano-ledger-shelley-ma = null;  # Path doesn't exist in thunk: /eras/shelley-ma/impl
+  cardano-ledger-allegra = haskellLib.dontCheck (haskellLib.enableCabalFlag (haskellLib.doJailbreak (self.callCabal2nix "cardano-ledger-allegra" (deps.cardano-ledger + "/eras/allegra/impl") {})) "development");
+  cardano-ledger-mary = haskellLib.dontCheck (haskellLib.enableCabalFlag (haskellLib.doJailbreak (self.callCabal2nix "cardano-ledger-mary" (deps.cardano-ledger + "/eras/mary/impl") {})) "development");
+  cardano-ledger-alonzo = haskellLib.dontCheck (haskellLib.enableCabalFlag (haskellLib.doJailbreak (self.callCabal2nix "cardano-ledger-alonzo" (deps.cardano-ledger + "/eras/alonzo/impl") {})) "development");
+  cardano-ledger-core = haskellLib.dontCheck (haskellLib.doJailbreak (self.callCabal2nix "cardano-ledger-core" (deps.cardano-ledger + "/libs/cardano-ledger-core") {}));
+  cardano-ledger-api = haskellLib.dontCheck (haskellLib.doJailbreak (self.callCabal2nix "cardano-ledger-api" (deps.cardano-ledger + "/libs/cardano-ledger-api") {}));
   cardano-protocol-tpraos = haskellLib.dontCheck (self.callCabal2nix "cardano-protocol-tpraos" (deps.cardano-ledger + "/libs/cardano-protocol-tpraos") {});
   # cardano-ledger libs
+  cardano-ledger-dijkstra = null;  # Doesn't exist in cardano-ledger thunk /libs/
   cardano-ledger-pretty = haskellLib.dontCheck (self.callCabal2nix "cardano-ledger-pretty" (deps.cardano-ledger + "/libs/cardano-ledger-pretty") {});
   cardano-data = self.callCabal2nix "cardano-data" (deps.cardano-ledger + "/libs/cardano-data") {};
   vector-map = self.callCabal2nix "vector-map" (deps.cardano-ledger + "/libs/vector-map") {};
@@ -55,6 +65,53 @@ in self: super: {
   small-steps-test = haskellLib.dontCheck (haskellLib.doJailbreak (self.callCabal2nix "small-steps-test" (deps.cardano-ledger + "/libs/small-steps-test") {}));
   byron-spec-chain = haskellLib.dontCheck (haskellLib.doJailbreak (self.callCabal2nix "byron-spec-chain" (deps.cardano-ledger + "/eras/byron/chain/executable-spec") {}));
   byron-spec-ledger = haskellLib.dontCheck (haskellLib.doJailbreak (self.callCabal2nix "byron-spec-ledger" (deps.cardano-ledger + "/eras/byron/ledger/executable-spec") {}));
+  # cuddle - Manual derivation (cabal2nix doesn't support cabal-version 3.4)
+  # Using tagged release cuddle-0.5.0.0 (tag d0dad49, June 3, 2025)
+  cuddle = haskellLib.dontCheck (self.callPackage ({ mkDerivation, base, base16-bytestring, boxes, bytestring
+    , capability, cborg, containers, data-default-class
+    , foldable1-classes-compat, generic-optics, hashable, megaparsec
+    , mtl, mutable-containers, optics-core, optparse-applicative
+    , ordered-containers, parser-combinators, prettyprinter, random
+    , regex-tdfa, scientific, stdenv, text, tree-diff
+    }:
+    mkDerivation {
+      pname = "cuddle";
+      version = "0.5.0.0";
+      src = pkgs.fetchFromGitHub {
+        owner = "input-output-hk";
+        repo = "cuddle";
+        rev = "d0dad49a83389220c8ee8265dbcdd5641cd218e6";
+        sha256 = "1r4c70b2fn0dlki1j0gjjlgbdb9cl9dbnkzwbc54k1q0a8vvv9nk";
+      };
+      libraryHaskellDepends = [
+        base base16-bytestring boxes bytestring capability cborg
+        containers data-default-class foldable1-classes-compat
+        generic-optics hashable megaparsec mtl mutable-containers
+        optics-core ordered-containers parser-combinators prettyprinter
+        random regex-tdfa scientific text tree-diff
+      ];
+      executableHaskellDepends = [
+        base base16-bytestring bytestring cborg megaparsec mtl
+        optparse-applicative prettyprinter random text
+      ];
+      description = "CDDL Generator and test utilities";
+      license = stdenv.lib.licenses.asl20;
+    }) {});
+  compact-map = haskellLib.dontCheck (self.callCabal2nix "compact-map" (deps.cardano-ledger + "/libs/compact-map") {});
+  # These packages are not in all-cabal-hashes, so we fetch from GitHub
+  bifunctor-classes-compat = haskellLib.dontCheck (self.callCabal2nix "bifunctor-classes-compat" (pkgs.fetchFromGitHub {
+    owner = "haskell-compat";
+    repo = "bifunctor-classes-compat";
+    rev = "68f12f4f85efa62e5e782237acebb96bdfb44f7c";  # tag 0.1
+    sha256 = "14v5nn78jrrk3awzyfh1k3dc2p15rgyrlyc6j0fdffwmwk7lbxzg";
+  }) {});
+  foldable1-classes-compat = haskellLib.dontCheck (self.callCabal2nix "foldable1-classes-compat" (pkgs.fetchFromGitHub {
+    owner = "haskell-compat";
+    repo = "foldable1-classes-compat";
+    rev = "6e2c97435d537267f9845b4bd33c1b26c52e46e1";  # tag v0.1.1
+    sha256 = "07wzlwk36dizqpc3qrsb7pyhh79wy56yz1f9dl9bvyyml533sa3r";
+  }) {});
+  cardano-ledger-conway = haskellLib.dontCheck (haskellLib.enableCabalFlag (haskellLib.doJailbreak (self.callCabal2nix "cardano-ledger-conway" (deps.cardano-ledger + "/eras/conway/impl") {})) "development");
   # Dummy packages to satisfy dependencies
   cardano-prelude-test = haskellLib.dontCheck (
     self.callCabal2nix "cardano-prelude-test" (deps.cardano-prelude + "/cardano-prelude-test") {}
@@ -76,9 +133,14 @@ in self: super: {
   lobemo-scribe-systemd = self.callCabal2nix "lobemo-scribe-systemd" (deps.iohk-monitoring-framework + "/plugins/scribe-systemd") {};
 
   # ouroboros-network
+  # Note: Many ouroboros-network-* packages don't exist in thunk at commit 4eb9750
+  # They were likely moved to a different repo or restructured
   # ouroboros-network = haskellLib.dontCheck (haskellLib.doJailbreak (self.callCabal2nix "ouroboros-network" (deps.ouroboros-network + "/ouroboros-network") {}));
-  ouroboros-network-framework = haskellLib.dontCheck (haskellLib.doJailbreak (self.callCabal2nix "ouroboros-network-framework" (deps.ouroboros-network + "/ouroboros-network-framework") {}));
-  ouroboros-network-testing = self.callCabal2nix "ouroboros-network-testing" (deps.ouroboros-network + "/ouroboros-network-testing") {};
+  ouroboros-network-framework = null;  # Path doesn't exist in thunk at commit 4eb9750
+  ouroboros-network-testing = null;  # Path doesn't exist in thunk at commit 4eb9750
+  ouroboros-network-mock = null;  # Path doesn't exist in thunk at commit 4eb9750
+  ouroboros-network-api = null;  # Path doesn't exist in thunk at commit 4eb9750
+  ouroboros-network-protocols = null;  # Path doesn't exist in thunk at commit 4eb9750
   ouroboros-consensus = haskellLib.doJailbreak (self.callCabal2nix "ouroboros-consensus" (deps.ouroboros-consensus + "/ouroboros-consensus") {});
   ouroboros-consensus-byron = haskellLib.doJailbreak (self.callCabal2nix "ouroboros-consensus-byron" (deps.ouroboros-consensus + "/ouroboros-consensus-byron") {});
   ouroboros-consensus-shelley = haskellLib.doJailbreak (self.callCabal2nix "ouroboros-consensus-shelley" (deps.ouroboros-consensus + "/ouroboros-consensus-shelley") {});
@@ -121,7 +183,13 @@ in self: super: {
   # plutus-ledger-api = self.callCabal2nix "plutus-ledger-api" (deps.plutus + "/plutus-ledger-api") {};
   # only nix-build of test seems broken, but running cabal test on pkg works :/
   plutus-use-cases = haskellLib.dontHaddock (haskellLib.dontCheck (self.callCabal2nix "plutus-use-cases" (deps.plutus + "/plutus-use-cases") {}));
-  prettyprinter-configurable = self.callCabal2nix "prettyprinter-configurable" (deps.plutus + "/prettyprinter-configurable") {};
+  # prettyprinter-configurable from GitHub (not in all-cabal-hashes, plutus thunk version fails)
+  prettyprinter-configurable = haskellLib.dontCheck (self.callCabal2nix "prettyprinter-configurable" (pkgs.fetchFromGitHub {
+    owner = "effectfully";
+    repo = "prettyprinter-configurable";
+    rev = "432ea90445d3dd84c73facabc92d3f90a82142f6";  # initial commit for version 1.0.0.0
+    sha256 = "1bbbbwlv3xiv7zkpk25m7v0j6pdxs890qfvap7jdl44nickzrbsz";
+  }) {});
   quickcheck-dynamic = self.callCabal2nix "quickcheck-dynamic" (deps.plutus + "/quickcheck-dynamic") {};
   word-array = self.callCabal2nix "word-array" (deps.plutus + "/word-array") {};
   # plutus misc
@@ -171,6 +239,46 @@ in self: super: {
         --replace ", toHashMapText" ""
     '';
   };
+  FailT = haskellLib.dontCheck (self.callCabal2nix "FailT" (pkgs.fetchFromGitHub {
+    owner = "lehins";
+    repo = "FailT";
+    rev = "bfc058095f65442d7d0403c1c3597ce48eccc3ad";  # tag FailT-0.1.2.0
+    sha256 = "0d1fvzcs89dwicy1hza9fkrjvsms67705pamv1rnwv64zkcwr9iv";
+  }) {});
+  transformers-except = haskellLib.doJailbreak super.transformers-except;
+  # fs-api 0.3.0.1 (not in all-cabal-hashes, from GitHub monorepo fs-sim)
+  fs-api = haskellLib.dontCheck (self.callCabal2nixWithOptions "fs-api" (pkgs.fetchFromGitHub {
+    owner = "input-output-hk";
+    repo = "fs-sim";
+    rev = "efd70ad35e1a5df50d9f5b80d278ae3bc12306c9";  # tag fs-api-0.3.0.1
+    sha256 = "0zdvj28micvdqncyznq0sc2bwin6daj1pssx94q8spknspciv c4i";
+  }) "--subpath fs-api" {});
+  # resource-registry 0.2.0.0 (not in all-cabal-hashes, from GitHub monorepo io-classes-extra)
+  resource-registry = haskellLib.dontCheck (self.callCabal2nixWithOptions "resource-registry" (pkgs.fetchFromGitHub {
+    owner = "IntersectMBO";
+    repo = "io-classes-extra";
+    rev = "356cd1185a9afc625eb7cff2c1669326cf31d5b1";  # tag release-resource-registry-0.2.0.0
+    sha256 = "0fvvw0qzw2hsaw4435gwckrph9lhahi4p8k6qg3065cww0qzhry5";
+  }) "--subpath resource-registry" {});
+  # data-array-byte 0.1.0.1 (not in all-cabal-hashes, from GitHub)
+  data-array-byte = haskellLib.dontCheck (self.callCabal2nix "data-array-byte" (pkgs.fetchFromGitHub {
+    owner = "Bodigrim";
+    repo = "data-array-byte";
+    rev = "f7d9cb10571721ed83c3640778b6ed9751304d9b";  # commit for version 0.1.0.1
+    sha256 = "0bsjpza7zc6w8xnqx4xfckj385cf7rrdw7ja9a4mnrpixvfdrdsy";
+  }) {});
+  mempack = haskellLib.dontCheck (self.callCabal2nix "mempack" (pkgs.fetchFromGitHub {
+    owner = "lehins";
+    repo = "mempack";
+    rev = "62ac57b7887850628687a56753929534f7ea5542";  # tag mempack-0.1.1.0
+    sha256 = "0117ifaxsifn38mklw7d6hdh381lj5dv2xv0j8nd6jl9mxpsx1j1";
+  }) {});
+  ImpSpec = haskellLib.dontCheck (self.callCabal2nix "ImpSpec" (pkgs.fetchFromGitHub {
+    owner = "input-output-hk";
+    repo = "ImpSpec";
+    rev = "e5ff0f14687e63337c728092b76ec44dc8875673";  # tag ImpSpec-0.1.0.0
+    sha256 = "1jv8iihw4q5cv3lbd60a9qbs14bz4xy69g4524d0hl6kpb3309vh";
+  }) {});
   ekg = haskellLib.doJailbreak (self.callHackage "ekg" "0.4.0.15" {});
   yaml = self.callHackage "yaml" "0.11.7.0" {};
   trifecta = haskellLib.doJailbreak super.trifecta;
@@ -227,7 +335,7 @@ in self: super: {
   libsystemd-journal = haskellLib.overrideCabal (self.callHackage "libsystemd-journal" "1.4.5" {}) (drv: {
     librarySystemDepends = drv.librarySystemDepends or [] ++ [ pkgs.systemd ];
   });
-  beam-sqlite = haskellLib.doJailbreak (self.callHackage "beam-sqlite" "0.5.0.0" {});
+  beam-sqlite = haskellLib.doJailbreak (self.callHackage "beam-sqlite" "0.5.5.0" {});  # Updated from 0.5.0.0 to latest verified version
   scientific = haskellLib.dontCheck (self.callHackage "scientific" "0.3.7.0" {}); # min version compat with plutus-contract tests
   integer-logarithms = haskellLib.doJailbreak (self.callHackage "integer-logarithms" "1.0.3.1" {});
   smallcheck = self.callHackage "smallcheck" "1.2.1" {};
@@ -337,4 +445,206 @@ in self: super: {
   validation = haskellLib.doJailbreak super.validation;
   validation-selective = haskellLib.dontCheck super.validation-selective;
   base16 = self.callHackage "base16" "0.3.1.0" {};
+
+  # ===========================================================================
+  # Missing packages identified by comprehensive dependency analysis
+  # Added: 2025-01-27
+  # Source: docs/DEPENDENCY-ANALYSIS.md
+  # ===========================================================================
+
+  # ---------------------------------------------------------------------------
+  # From existing thunks (top-level /dep/)
+  # ---------------------------------------------------------------------------
+  aeson-gadt-th = self.callCabal2nix "aeson-gadt-th" topLevelDeps.aeson-gadt-th {};
+  bytestring-aeson-orphans = self.callCabal2nix "bytestring-aeson-orphans" topLevelDeps.bytestring-aeson-orphans {};
+  constraints-extras = self.callCabal2nix "constraints-extras" topLevelDeps.constraints-extras {};
+  reflex = haskellLib.dontCheck (self.callCabal2nix "reflex" topLevelDeps.reflex {});
+  reflex-gadt-api = self.callCabal2nix "reflex-gadt-api" topLevelDeps.reflex-gadt-api {};
+  snap-core = self.callCabal2nix "snap-core" topLevelDeps.snap-core {};
+
+  # ---------------------------------------------------------------------------
+  # From obelisk monorepo (top-level dep/obelisk)
+  # ---------------------------------------------------------------------------
+  obelisk-backend = self.callCabal2nixWithOptions "obelisk-backend" topLevelDeps.obelisk "--subpath lib/backend" {};
+  obelisk-frontend = self.callCabal2nixWithOptions "obelisk-frontend" topLevelDeps.obelisk "--subpath lib/frontend" {};
+  obelisk-route = self.callCabal2nixWithOptions "obelisk-route" topLevelDeps.obelisk "--subpath lib/route" {};
+  obelisk-executable-config-lookup = self.callCabal2nixWithOptions "obelisk-executable-config-lookup" topLevelDeps.obelisk "--subpath lib/executable-config/lookup" {};
+
+  # ---------------------------------------------------------------------------
+  # From rhyolite monorepo (cardano-project/dep/rhyolite)
+  # ---------------------------------------------------------------------------
+  rhyolite-beam-db = self.callCabal2nixWithOptions "rhyolite-beam-db" (pkgs.thunkSource ./dep/rhyolite) "--subpath beam/db" {};
+  rhyolite-beam-task-worker-backend = self.callCabal2nixWithOptions "rhyolite-beam-task-worker-backend" (pkgs.thunkSource ./dep/rhyolite) "--subpath beam/task/backend" {};
+  rhyolite-beam-task-worker-types = self.callCabal2nixWithOptions "rhyolite-beam-task-worker-types" (pkgs.thunkSource ./dep/rhyolite) "--subpath beam/task/types" {};
+
+  # ---------------------------------------------------------------------------
+  # From new cardano-api thunk (dep/cardano-api)
+  # CRITICAL: cardano-api doesn't exist in old cardano-node thunk
+  # It's a separate repo: IntersectMBO/cardano-api
+  # NOTE: This is a monorepo - package is in cardano-api/ subdirectory
+  # ---------------------------------------------------------------------------
+  cardano-api = haskellLib.dontCheck (self.callCabal2nixWithOptions "cardano-api" topLevelDeps.cardano-api "--subpath cardano-api" {});
+
+  # ---------------------------------------------------------------------------
+  # From Hackage - Core Dependencies
+  # NOTE: All versions verified on Hackage 2025-01-27
+  # NOTE: async 2.2.5 not in all-cabal-hashes, using fetchFromGitHub
+  # ---------------------------------------------------------------------------
+  reflex-dom = haskellLib.dontCheck (self.callHackage "reflex-dom" "0.6.3.4" {});
+  reflex-dom-core = haskellLib.dontCheck (self.callCabal2nix "reflex-dom-core" (pkgs.fetchFromGitHub {
+    owner = "reflex-frp";
+    repo = "reflex-dom";
+    rev = "56dcb9b1fac39f6624fe29b88d9a59af38e04956";  # tag reflex-dom-core-0.8.1.4
+    sha256 = "09f3nk00vqk09h1l2gzalmm4dhhd2r7479xx2wvv9ng39d2yqhjr";
+  }) {});
+  async = haskellLib.dontCheck (self.callCabal2nix "async" (pkgs.fetchFromGitHub {
+    owner = "simonmar";
+    repo = "async";
+    rev = "4a70b53c1ba90d8a59d6ec41a89337645c55b4cd";  # tag 2.2.5
+    sha256 = "08f1k9bvjlsl0kkicmd2ixpnmkd3hqkbzb3iyhf2z2a8xxf820rs";
+  }) {});
+  dependent-sum = self.callCabal2nixWithOptions "dependent-sum" (pkgs.fetchFromGitHub {
+    owner = "obsidiansystems";
+    repo = "dependent-sum";
+    rev = "43c633312b1d706a81a01c61cc3a33bdbe5530a3";  # tag v0.7.2.0
+    sha256 = "1ndfllw7iqv9xayswfpw4qxx4b9920rmakyjnrdhrhjp576wkq1n";
+  }) "--subpath dependent-sum" {};
+  some = self.callCabal2nix "some" (pkgs.fetchFromGitHub {
+    owner = "haskellari";
+    repo = "some";
+    rev = "7c7fd6a4e7cebc56394c51d02e5d4155edfcc52a";  # tag v1.0.6
+    sha256 = "0i6qg6q5n04in2w5hqg70zycfzyfcc2mzb8bw7xrginrk1kb7l2m";
+  }) {};
+
+  # ---------------------------------------------------------------------------
+  # From Hackage - Database (Beam + PostgreSQL)
+  # NOTE: All versions verified on Hackage 2025-01-27
+  # NOTE: beam-sqlite already defined earlier at line 332 (updated to 0.5.5.0)
+  # ---------------------------------------------------------------------------
+  postgresql-simple = haskellLib.dontCheck (self.callHackage "postgresql-simple" "0.7.0.1" {});
+  resource-pool = self.callCabal2nix "resource-pool" (pkgs.fetchFromGitHub {
+    owner = "scrive";
+    repo = "pool";
+    rev = "589954fcf7ffc2ff8e819cfdf0252f1173a99095";  # tag 0.5.0.0
+    sha256 = "0isdmsi4mf2r03m4vi6baxxqqc3yac8wf06kahvnf1n68vpjswxi";
+  }) {};
+  beam-core = haskellLib.dontCheck (self.callHackage "beam-core" "0.10.4.0" {});
+  beam-postgres = haskellLib.dontCheck (self.callCabal2nix "beam-postgres" (pkgs.fetchFromGitHub {
+    owner = "haskell-beam";
+    repo = "beam";
+    rev = "bab3a2f952a880c14e79860b222a7536c83f686c";  # tag v0.10.3.1 (monorepo)
+    sha256 = "18z3ygd40jdf7r29nqszcddhhqzg89gq0f6hz92n5y9jdgk3yyh4";
+  }) {});
+  beam-automigrate = haskellLib.dontCheck (self.callCabal2nix "beam-automigrate" (pkgs.fetchFromGitHub {
+    owner = "obsidiansystems";
+    repo = "beam-automigrate";
+    rev = "9294164cedbb9c31e0d9e58bf97becd987aa2baf";  # tag v0.1.7.0
+    sha256 = "103si2r8fcq4b2z12zxrfj1xaxq2zggh0s2x5jgivplcp089dvhc";
+  }) {});
+
+  # ---------------------------------------------------------------------------
+  # From Hackage - HTTP/Web
+  # NOTE: All versions verified on Hackage 2025-01-27
+  # ---------------------------------------------------------------------------
+  http-client = self.callCabal2nix "http-client" (pkgs.fetchFromGitHub {
+    owner = "snoyberg";
+    repo = "http-client";
+    rev = "a0b418c12ff3c9878f21bff92bb174c239a9cfe3";  # tag http-client-0.7.19
+    sha256 = "16wwy8l6bmwwpbblvaly7y6srxyjzbs3qa1rgdcpsyk3bj75alkl";
+  }) {};
+  http-conduit = haskellLib.dontCheck (self.callCabal2nix "http-conduit" (pkgs.fetchFromGitHub {
+    owner = "snoyberg";
+    repo = "http-client";
+    rev = "a0b418c12ff3c9878f21bff92bb174c239a9cfe3";  # tag http-client-0.7.19 (monorepo)
+    sha256 = "16wwy8l6bmwwpbblvaly7y6srxyjzbs3qa1rgdcpsyk3bj75alkl";
+  }) {});
+  websockets = haskellLib.dontCheck (self.callCabal2nix "websockets" (pkgs.fetchFromGitHub {
+    owner = "jaspervdj";
+    repo = "websockets";
+    rev = "cbba20b9e073e15e767052fc08b9e35cf8afb985";  # tag v0.13.0.0
+    sha256 = "0bdkgc4ra5fbwhjhik28w4972mj0wdrp6ryb59a2gg5m0msr9jx4";
+  }) {});
+  websockets-snap = haskellLib.dontCheck (self.callHackage "websockets-snap" "0.10.3.1" {});
+  snap-server = haskellLib.dontCheck (self.callHackage "snap-server" "1.1.2.1" {});
+
+  # ---------------------------------------------------------------------------
+  # From Hackage - Utilities
+  # NOTE: All versions verified on Hackage 2025-01-27
+  # ---------------------------------------------------------------------------
+  case-insensitive = self.callHackage "case-insensitive" "1.2.1.0" {};
+  cryptonite = haskellLib.dontCheck (self.callHackage "cryptonite" "0.30" {});
+  fsnotify = haskellLib.dontCheck (self.callCabal2nix "fsnotify" (pkgs.fetchFromGitHub {
+    owner = "haskell-fswatch";
+    repo = "hfsnotify";
+    rev = "f780a2c9c8665402408683ac2c541c073fb76060";  # tag v0.4.4.0
+    sha256 = "1w1cka6s04ma0510v1j9iwmcrfhiykfhfb2w3ygkfh7d14jffj1d";
+  }) {});
+  hexstring = self.callHackage "hexstring" "0.11.1" {};
+  io-streams = haskellLib.dontCheck (self.callHackage "io-streams" "1.5.2.2" {});
+  logging-effect = self.callHackage "logging-effect" "1.4.1" {};
+  managed = self.callHackage "managed" "1.0.10" {};
+  monad-logger = haskellLib.dontCheck (self.callCabal2nix "monad-logger" (pkgs.fetchFromGitHub {
+    owner = "snoyberg";
+    repo = "monad-logger";
+    rev = "04a87e9838ee5a4e8555249d665440a408ca4635";  # tag monad-logger-0.3.40 (closest to 0.3.42)
+    sha256 = "1zbnikf5f5zl9fgzn1x54yzv0aq2gmxa3715sq4b7fibp8pxgdfm";
+  }) {});
+  monad-loops = self.callHackage "monad-loops" "0.4.3" {};
+  network = self.callCabal2nix "network" (pkgs.fetchFromGitHub {
+    owner = "haskell";
+    repo = "network";
+    rev = "86f33ca2d31221c18afc787da4d6ea718616d261";  # tag v3.2.8.0
+    sha256 = "02kw61v5l9ngrpjylzx6yqpivv97phqjdzl4nrhgjjdckxa3l021";
+  }) {};
+  prettyprinter = self.callHackage "prettyprinter" "1.7.1" {};
+  temporary = self.callHackage "temporary" "1.3" {};
+  typed-process = haskellLib.dontCheck (self.callCabal2nix "typed-process" (pkgs.fetchFromGitHub {
+    owner = "fpco";
+    repo = "typed-process";
+    rev = "d5e9fb30b203721c62974bae6bc1d2be474caae8";  # tag typed-process-0.2.11.1 (closest to 0.2.13.0)
+    sha256 = "03p0si8k059hf2mvczxz6525gsb34jbis4y4n9x7khqprz5cmzi5";
+  }) {});
+  utf8-string = self.callHackage "utf8-string" "1.0.2" {};
+  uuid = self.callCabal2nixWithOptions "uuid" (pkgs.fetchFromGitHub {
+    owner = "haskell-hvr";
+    repo = "uuid";
+    rev = "45e9e5df24b05dccc2b89729d75e4c96d668fc59";  # tag uuid-1.3.16
+    sha256 = "1pmkrz9bs67hw2z4b68q85a9mrq3ycrgl5n8dnvnrvvzv2d39yk1";
+  }) "--subpath uuid" {};
+  which = haskellLib.dontCheck (self.callCabal2nix "which" (pkgs.fetchFromGitHub {
+    owner = "obsidiansystems";
+    repo = "which";
+    rev = "e2a87735fb5af72f9ef28ec9c39bb54f3cd318f7";  # tag v0.2.0.3
+    sha256 = "05kf7qx7jfx7b9s4k6wy4h3bp1498bilxnywjy4nsrxlwczz5vca";
+  }) {});
+
+  # ---------------------------------------------------------------------------
+  # From Hackage - Gargoyle (may also be in rhyolite/obelisk)
+  # Note: Check if these exist in monorepos; if yes, use those versions
+  # NOTE: All versions verified on Hackage 2025-01-27
+  # ---------------------------------------------------------------------------
+  gargoyle = haskellLib.dontCheck (self.callCabal2nixWithOptions "gargoyle" (pkgs.fetchFromGitHub {
+    owner = "obsidiansystems";
+    repo = "gargoyle";
+    rev = "66324bf0cd71567fc7264ed68887d22e9862340a";  # tag gargoyle-0.1.2.2
+    sha256 = "1pypnciq6zwvm0zg8svxqk4daf86y19pz751n6n54z4zvm29gxzl";
+  }) "--subpath gargoyle" {});
+  gargoyle-postgresql = haskellLib.dontCheck (self.callCabal2nixWithOptions "gargoyle-postgresql" (pkgs.fetchFromGitHub {
+    owner = "obsidiansystems";
+    repo = "gargoyle";
+    rev = "24feb5a687703dcd006e39a33259356f7314338a";  # tag gargoyle-postgresql-0.2.0.4
+    sha256 = "17khmz4nc9hxk15wx0ag4i6qmc8jim768cczd1h6y76nfm07i9nc";
+  }) "--subpath gargoyle-postgresql" {});
+  gargoyle-postgresql-connect = haskellLib.dontCheck (self.callCabal2nixWithOptions "gargoyle-postgresql-connect" (pkgs.fetchFromGitHub {
+    owner = "obsidiansystems";
+    repo = "gargoyle";
+    rev = "00ba66f3b0e9876e44cf1b7f02c856e808bd5c13";  # tag gargoyle-postgresql-connect-0.1.0.4
+    sha256 = "0sbayyw51382nvqm521r985ha7jqkm09zpjz50kd74dq11gbfizl";
+  }) "--subpath gargoyle-postgresql-connect" {});
+  gargoyle-postgresql-nix = haskellLib.dontCheck (self.callCabal2nixWithOptions "gargoyle-postgresql-nix" (pkgs.fetchFromGitHub {
+    owner = "obsidiansystems";
+    repo = "gargoyle";
+    rev = "7b196a9bd0e77997abcce2e2d90fb1a1fc9c3065";  # tag gargoyle-postgresql-nix-0.3.0.4
+    sha256 = "0dz4adslpp3q71s11igcsxk00d0dmnh435y06pxp1zz736qaxx8k";
+  }) "--subpath gargoyle-postgresql-nix" {});
 }
