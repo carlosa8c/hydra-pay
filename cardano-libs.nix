@@ -193,9 +193,9 @@ self: super: {
   small-steps-test = self.callCabal2nix "small-steps-test" (cardano-ledger + "/libs/small-steps-test") {};
   non-integral = self.callCabal2nix "non-integral" (cardano-ledger + "/libs/non-integral") {};
   vector-map = self.callCabal2nix "vector-map" (cardano-ledger + "/libs/vector-map") {};
-
-
-  cardano-crypto-wrapper = null;  # Disabled due to function coercion errors
+  cardano-crypto-wrapper = haskellLib.dontCheck (
+    self.callCabal2nix "cardano-crypto-wrapper" (cardano-ledger + "/eras/byron/crypto") {}
+  );
 
   # cardano-crypto
   cardano-crypto = self.callCabal2nix "cardano-crypto" (cardano-crypto) {};

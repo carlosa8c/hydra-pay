@@ -56,8 +56,12 @@ in self: super: {
   byron-spec-chain = haskellLib.dontCheck (haskellLib.doJailbreak (self.callCabal2nix "byron-spec-chain" (deps.cardano-ledger + "/eras/byron/chain/executable-spec") {}));
   byron-spec-ledger = haskellLib.dontCheck (haskellLib.doJailbreak (self.callCabal2nix "byron-spec-ledger" (deps.cardano-ledger + "/eras/byron/ledger/executable-spec") {}));
   # Dummy packages to satisfy dependencies
-  cardano-prelude-test = null;
-  cardano-crypto-wrapper = null;  # Disabled due to function coercion errors
+  cardano-prelude-test = haskellLib.dontCheck (
+    self.callCabal2nix "cardano-prelude-test" (deps.cardano-prelude + "/cardano-prelude-test") {}
+  );
+  cardano-crypto-wrapper = haskellLib.dontCheck (
+    self.callCabal2nix "cardano-crypto-wrapper" (deps.cardano-ledger + "/eras/byron/crypto") {}
+  );
   cardano-crypto-test = null;  # Missing cabal file, disabled
   cardano-ledger-binary = self.cardano-binary;  # Alias to cardano-binary from cardano-base
 

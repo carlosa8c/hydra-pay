@@ -1,6 +1,6 @@
 # Hydra Pay: Nix-in-Docker build notes (macOS)
 
-This doc captures the Docker build issues we've resolved and the current status of the Nix build system for hydra-pay on macOS.
+This doc captures the Docker build issues we've resolved and the current status of the Nix build system for hydra-pay on macOS. The overarching goal is to keep the repository updated to the latest viable package and dependency versions while ensuring `./build-in-docker.sh` succeeds, so the project can be built consistently across macOS, Linux, and CI environments.
 
 ## Goals
 
@@ -101,23 +101,26 @@ Fix implemented:
 
 Result: ✅ Missing package dependencies resolved.
 
-## 🔄 CURRENT: Issue 5: cardano-crypto-wrapper function coercion
+## 🔄 CURRENT: Issue 5: Cabal solver ignores Obelisk/Rhyolite overrides
 
 **Status: IN PROGRESS**
 
 Symptom:
 ```
-error: cannot coerce a function to a string: «lambda callPackageKeepDeriver @ /nix/store/...-source/pkgs/development/haskell-modules/make-package-set.nix:161:33»
+Error: [Cabal-7107]
+Could not resolve dependencies:
+[__1] unknown package: obelisk-route (dependency of backend)
 ```
 
-Current approach:
-- Disabled `cardano-crypto-wrapper` by setting to `null` in all overlay files
-- Issue persists, suggesting deeper Nix expression evaluation problem
+What we are seeing:
+- The generated `cabal.project.local` text (see `nix eval .#packages.aarch64-darwin.debug-cabal-project`) correctly lists 30+ store paths for Obelisk and Rhyolite packages, yet `callCabalProjectToNix` never reads it.
+- The temporary build directory captured with `--keep-failed` (for example `/nix/var/nix/builds/nix-35703-3265046263/tmp.*`) only contains the stock `cabal.project` from the repository (`optional-packages: *`), proving the local override is being dropped before Cabal runs.
+- Feeding the content through `modules = [ moduleConfig ]` did not work because the module was executed after `callCabalProjectToNix` evaluated the project; wiring the text via the top-level `cabalProject` argument triggers the same evaluation, but `processAssets` inside Obelisk tries to consult `~/.gitconfig`, which is denied under pure evaluation.
 
-Investigation needed:
-- Function coercion in Haskell.nix build system
-- Possible cabal2nix-generated dependency issues
-- May require alternative package definition approach
+Open questions we are tracking:
+- Identify the correct hook for injecting the generated `packages:` stanza so Cabal sees the additional store paths (e.g. via `project.appendModule`, or by materialising the file and using `cabalProjectFileName`).
+- Prevent Obelisk's `processAssets` from reading host configuration during evaluation (set `GIT_CONFIG_GLOBAL=/dev/null` or provide a stub).
+- Once the solver succeeds on macOS, propagate the same wiring into the Docker/Linux pipeline to regain parity.
 
 ## What's Working ✅
 
@@ -132,16 +135,15 @@ Investigation needed:
 
 **Progress Made:**
 - ✅ Container hanging resolved
-- ✅ Missing nixpkgs dependencies resolved  
-- ✅ Missing Cardano package dependencies resolved
+- ✅ Missing nixpkgs and Cardano package dependencies resolved
 - ✅ Build log monitoring improved
-- 🔄 Function coercion error in cardano-crypto-wrapper (ongoing)
+- 🔄 Cabal still fails to see Obelisk/Rhyolite source overrides (current blocker)
 
 **Current Build Flow:**
 1. Container starts successfully
 2. Dependencies download and extract properly
-3. Package evaluation begins
-4. Stops at cardano-crypto-wrapper function coercion error
+3. `callCabalProjectToNix` runs but only sees the base `cabal.project`
+4. Cabal solver stops with `unknown package: obelisk-route`
 
 ## Files Modified
 
@@ -170,24 +172,29 @@ Investigation needed:
 
 ### Build System
 - **`.ci/inner-build.sh`**: Enhanced logging with build log clearing
+- **`flake.nix`**:
+  - Generates a `cabalProject` string merging the repo’s base file with store-path packages for Obelisk/Rhyolite
+  - Adds debug outputs (`debug-cabal-project`, `debug-package-paths`) to inspect the generated configuration
 
 ## Next Steps
 
-### Immediate (to resolve cardano-crypto-wrapper)
-1. **Investigate function coercion**: 
-   - Deep dive into Haskell.nix build system
-   - Check cabal2nix generated expressions
-   - Consider alternative package definition methods
+### Immediate (to resolve the Cabal override issue)
+1. **Inject the `packages:` stanza earlier**
+  - Pass a concrete `cabalProject` file (materialised in the repo or generated under `generated/`) so `callCabalProjectToNix` reads the augmented list before evaluation.
+  - Alternatively, use `project.appendModule` or an overlay on `callCabalProjectToNix` to append the text after the default `packages: ./*.cabal` clause.
 
-2. **Alternative approaches**:
-   - Use pre-generated .nix files for problematic packages
-   - Fetch from different source (Hackage vs. GitHub)
-   - Investigate dependency graph to find root cause
+2. **Stub host Git configuration during evaluation**
+  - Set `GIT_CONFIG_GLOBAL=/dev/null` and `HOME` to a temporary directory when running `processAssets` so Obelisk does not attempt to read `~/.gitconfig` in pure mode.
+  - If necessary, pre-generate the asset manifest outside evaluation and feed the store path via `flake` inputs.
+
+3. **Validate the solver outcome**
+  - Re-run `nix build .#packages.aarch64-darwin.default --keep-failed` and confirm the generated `cabal.project` inside the kept build directory now includes the store paths.
+  - Expect the next failure to surface at actual compilation instead of dependency resolution; iterate from there.
 
 ### Medium-term improvements
-1. **Package alignment**: Ensure consistent versions across Cardano ecosystem
-2. **Testing**: Add validation for individual package builds
-3. **Documentation**: Update build procedures and troubleshooting guides
+1. **Port fixes to Docker/Linux**: mirror the working `cabal.project` approach in `build-in-docker.sh` so CI parity is restored.
+2. **Add smoke tests**: wire a minimal `cabal new-build` invocation in CI to catch regressions in project wiring quickly.
+3. **Documentation upkeep**: keep this guide aligned with the chosen cabal wiring (materialised file vs. module injection).
 
 ## How to Test
 
@@ -283,67 +290,46 @@ When asking `cabal2nix` to generate from a subdirectory of a repo, it’s someti
 
 ## Recommended next steps (low-risk → higher effort)
 
-1) Vendor cabal2nix outputs for cardano-base subpackages
-- Generate `.nix` for each needed subdir from a known-good revision, out-of-band (with network and git available), then commit under overlay, e.g., `cardano-overlays/cardano-packages/generated/`.
-  - Example to re-run (pick a good SHA and adjust):
-    ```sh
-    docker run --rm --platform linux/amd64 --security-opt seccomp=unconfined \
-      -e GITHUB_TOKEN=$(cat .github_token) -e http_proxy -e https_proxy \
-      -v "$PWD":/work -w /work nixos/nix bash -lc '
-        set -euo pipefail
-        nix-shell -p cabal2nix git cacert --command \
-          "cabal2nix --subpath binary --no-cabal-project --revision <REV> https://github.com/IntersectMBO/cardano-base.git > cardano-project/cardano-overlays/cardano-packages/generated/cardano-binary.nix"
-      '
-    ```
-  - Update overlay to use `callPackage` on that generated file instead of invoking cabal2nix at build time.
+1) **Materialise the augmented `cabal.project`**
+   - Write the generated text from `debug-cabal-project` to `config/cabal.project.generated` (or similar) and commit it.
+   - Point `flake.nix` at that file via `cabalProjectFileName` or by setting `cabalProject = builtins.readFile ./config/cabal.project.generated;`.
+   - This keeps the override deterministic and sidesteps the module ordering problem entirely.
 
-2) Fetch via `fetchFromGitHub` and avoid `--subpath` download code paths
-- Replace `cleanCardanoBase` with a true tarball fetch:
-  ```nix
-  cardanoBaseSrc = pkgs.fetchFromGitHub {
-    owner = "IntersectMBO"; repo = "cardano-base";
-    rev = "<REV>"; sha256 = "<HASH>";
-  };
-  cardano-binary = self.callCabal2nixWithOptions "cardano-binary" cardanoBaseSrc "--subpath binary --no-cabal-project" {};
-  ```
-- This should keep the source as an unpacked tar directory in the store and avoid VCS/hash heuristics.
+2) **Append the overrides in a module**
+   - Use `project.appendModule` (or add another entry to `modules`) that returns `{ config.cabalProject = config.cabalProject + "\n" + extraPackagesText; }`.
+   - Ensure the module reads `config.cabalProject` from its arguments rather than re-importing the file so the amendment survives evaluation.
 
-3) Confirm our wrapper is actually the one used by cabal2nix derivations
-- We already override both `pkgs.cabal2nix` and `buildPackages.cabal2nix`. Double-check via `nix-store -qR` of the failing drv whether our wrapper path appears.
-
-4) Wire `cardano-api` from a stable source
-- Since newer `cardano-node` versions dropped the `cardano-api/` subdir, we either:
-  - Pin `cardano-api` from Hackage with the GHC 8.10.7 compatible version, or
-  - Fetch a matching commit of `cardano-node` containing `cardano-api/` and add a separate overlay entry.
-
-5) Align pins across `cardano-base`/`ledger`/`ouroboros` to a known-good set
-- If generation succeeds but later compilation mismatches happen, lock to a consistent set of SHAs or versions.
+3) **Sanitise the environment for `processAssets`**
+   - Wrap `processAssets` in a `pkgs.runCommand` that sets `HOME` and `GIT_CONFIG_GLOBAL` to temporary locations.
+   - Alternatively, run it once manually and commit the resulting manifest under `static/` so evaluation only references a store path.
 
 ## Current status
 
-- Build stops at `cabal2nix-cardano-binary.drv` with URL/VCS/subpath confusion.
-- Orchestration is otherwise healthy; the problem is isolated to cabal2nix input handling for `cardano-base` subpackages.
+- Build stops during dependency planning with `unknown package: obelisk-route` because Cabal only sees the base `cabal.project`.
+- The generated override text already resides in the store (`debug-cabal-project`); the remaining work is to inject it before `callCabalProjectToNix` runs.
 
 ## Pointers to changes
 
-- cabal2nix wrappers (unset proxies, richer PATH):
-  - `cardano-project/default.nix` overlays for `cabal2nix` and `buildPackages.cabal2nix`
-- Subdir handling attempts (directory, `--subpath`, tar.gz + `--subpath`):
-  - `cardano-project/cardano-overlays/cardano-packages/default.nix`
-- Node pin for `cardano-api/` presence:
-  - `dep/cardano-node/github.json` → `1.35.7`
-- Container build invocation and sandbox toggles:
-  - `build-in-docker.sh`
+- `flake.nix`: source overrides, asset manifest wiring, debug helpers.
+- `static/`: produced by `processAssets`; keep in sync if we decide to materialise outputs.
+- `build-in-docker.sh`: orchestrates the macOS-to-Linux build; will need an update once cabal wiring stabilises.
 
 ## Who can pick this up next
 
-- Try option (1): vendor generated `.nix` for the needed subdirs, commit, and switch overlay to those. This removes cabal2nix from the evaluation/realisation path entirely for `cardano-base` and should unblock quickly.
-- If you prefer to keep generation in-Nix, try option (2) with `fetchFromGitHub` + `--no-cabal-project`.
+- Run `nix eval --impure --raw .#packages.aarch64-darwin.debug-cabal-project > /tmp/cabal.project.generated` and inspect the contents.
+- Decide between “materialise the file” vs “module append” and implement the chosen route in `flake.nix`.
+- Re-run `nix build .#packages.aarch64-darwin.default --keep-failed`, inspect `/nix/var/nix/builds/.../tmp.*/cabal.project`, and keep iterating until it matches the generated file.
 
-If you need a fresh failing trace, re-run:
+If you need a fresh trace, repeat the build with `--keep-failed` and check the `plan-to-nix` derivation logs:
 
 ```sh
-./build-in-docker.sh --attr ghc.cardano-api
+nix build .#packages.aarch64-darwin.default --keep-failed --show-trace
 ```
 
-…and inspect `/Users/carlos/hydra-pay/build-in-docker.log` for the cabal2nix error block.
+The kept directory will live under `/nix/var/nix/builds/` with a random suffix; look for the newest entry after the failed build.
+
+## Recommendation
+
+- **Primary fix**: materialise the generated `cabal.project` (or append it via `project.appendModule`) so `callCabalProjectToNix` sees the Obelisk/Rhyolite packages during dependency planning.
+- **Hardening step**: run `processAssets` under a clean environment (`GIT_CONFIG_GLOBAL=/dev/null`, temporary `HOME`) or pre-generate the manifest to avoid host `~/.gitconfig` lookups in pure mode.
+- **Follow-through**: once macOS succeeds, update the Docker/Linux path and verify `nix build .#packages.x86_64-linux.default` uses the same project wiring.

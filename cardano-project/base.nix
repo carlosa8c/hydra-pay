@@ -21,7 +21,11 @@ args@{ rpSetup, obelisk, ... }:
           th-orphans = self.callHackage "th-orphans" "0.13.10" {};
           scientific = haskellLib.dontCheck super.scientific;
           ral = haskellLib.doJailbreak (self.callHackage "ral" "0.1" {});
-          crypton = self.callHackage "crypton" {};
+          crypton = self.callCabal2nix "crypton" (pkgs.fetchzip {
+            url = "https://hackage.haskell.org/package/crypton-1.0.4/crypton-1.0.4.tar.gz";
+            sha256 = "0kykjc62xg6x2932wdx1vsqxvhwk0lqk9l4rn9fwiib4z2fxblfq";
+          }) {};
+          canonical-json = self.callHackage "canonical-json" "0.6.0.1" {};
 
           flat = self.callCabal2nix "flat" deps.flat {};
           formatting = haskellLib.dontCheck (self.callHackage "formatting" "7.1.2" {});
@@ -48,18 +52,21 @@ args@{ rpSetup, obelisk, ... }:
 
           cardano-prelude = haskellLib.overrideCabal (self.callCabal2nix "cardano-prelude" (deps.cardano-prelude + "/cardano-prelude") {}) (drv: {
             doCheck = false;
+            doHaddock = false;
             preConfigure = ''
                     substituteInPlace cardano-prelude.cabal \
                       --replace ", integer-gmp" "" \
                       --replace "default: False" "default: True"
 
-                    substituteInPlace src/Cardano/Prelude/HeapWords.hs \
-                      --replace "import GHC.Integer.GMP" "-- " \
-                      --replace "import GHC.Natural" "-- " \
-                      --replace "instance HeapWords Integer where" "{-" \
-                      --replace "instance HeapWords Float where" $'-}\ninstance HeapWords Float where' \
-                      --replace "instance HeapWords Natural where" "{-" \
-                      --replace "nbytes = I# (sizeofByteArray# ba#)" "-}"
+                    if [ -f src/Cardano/Prelude/HeapWords.hs ]; then
+                      substituteInPlace src/Cardano/Prelude/HeapWords.hs \
+                        --replace "import GHC.Integer.GMP" "-- " \
+                        --replace "import GHC.Natural" "-- " \
+                        --replace "instance HeapWords Integer where" "{-" \
+                        --replace "instance HeapWords Float where" $'-}\ninstance HeapWords Float where' \
+                        --replace "instance HeapWords Natural where" "{-" \
+                        --replace "nbytes = I# (sizeofByteArray# ba#)" "-}"
+                    fi
                   '';
           });
 
@@ -118,11 +125,16 @@ args@{ rpSetup, obelisk, ... }:
                     '';
             });
 
-          # cardano-prelude-test = haskellLib.dontCheck (self.callCabal2nix "cardano-prelude-test" (deps.cardano-prelude + "/cardano-prelude-test") {});
+          cardano-prelude-test =
+            haskellLib.dontHaddock (haskellLib.dontCheck (
+              self.callCabal2nix "cardano-prelude-test" (deps.cardano-prelude + "/cardano-prelude-test") {}
+            ));
 
           # strict-containers = self.callHackage "strict-containers" {};
 
-          cardano-crypto-wrapper = null;  # Disabled due to function coercion errors
+          cardano-crypto-wrapper = haskellLib.dontCheck (
+            self.callCabal2nix "cardano-crypto-wrapper" (deps.cardano-ledger + "/eras/byron/crypto") {}
+          );
 
           fmt = haskellLib.dontCheck (self.callCabal2nix "fmt" deps.fmt {});
           double-conversion = haskellLib.overrideCabal super.double-conversion (drv: {
