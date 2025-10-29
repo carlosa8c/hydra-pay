@@ -16,16 +16,16 @@ import Control.Lens
 import Control.Monad
 import Network.WebSockets as WS
 import Network.WebSockets.Snap as WS
-import Obelisk.Route
-import Obelisk.Backend
 import Reflex.Dom.GadtApi.WebSocket
 
 import qualified Cardano.Api as Api
 import qualified Data.Aeson as Aeson
 
-backend :: Backend BackendRoute FrontendRoute
-backend = Backend
-  { _backend_run = \serve -> do
-      runPreviewInstance
-  , _backend_routeEncoder = fullRouteEncoder
-  }
+import Snap.Core
+import Snap.Http.Server
+
+-- Main backend application
+runBackend :: Int -> String -> IO ()
+runBackend port bind = do
+  -- Run the Hydra Pay instance (this is where the real logic is)
+  runPreviewInstance

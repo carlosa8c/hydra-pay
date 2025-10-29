@@ -5,13 +5,8 @@ build-type: Simple
 
 library
   hs-source-dirs: src
-  if impl(ghcjs)
-    buildable: False
   build-depends: base
                , common
-               , frontend
-               , obelisk-backend
-               , obelisk-route
                , process
                , async
                , which
@@ -35,10 +30,6 @@ library
                , gargoyle-postgresql-nix
                , gargoyle
                , resource-pool
-               -- , postgresql-simple
-               -- , beam-core
-               -- , beam-postgres
-               -- , beam-automigrate
                , bytestring
                , base64-bytestring
                , case-insensitive
@@ -53,14 +44,12 @@ library
                , transformers
                , time
                , time-compat
-               , transformers
-               , obelisk-executable-config-lookup
                , cryptonite
-               , base64-bytestring
                , optparse-applicative
                , hydra-pay
                , cardano-api
                , hydra-pay-core
+               , filepath
 
   default-extensions:
     OverloadedStrings
@@ -85,12 +74,9 @@ executable backend
   main-is: main.hs
   hs-source-dirs: src-bin
   ghc-options: -Wall -Wredundant-constraints -Wincomplete-uni-patterns -Wincomplete-record-updates -O -threaded -fno-show-valid-hole-fits
-  if impl(ghcjs)
-    buildable: False
   build-depends: base
                , backend
                , common
-               , frontend
-               , obelisk-backend
                , snap-server
+               , snap-core
                , utf8-string
