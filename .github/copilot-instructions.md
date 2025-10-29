@@ -50,30 +50,45 @@
 - **Dependency pins**: Multiple `thunk.nix` files throughout project
 - **Build log**: `build-in-docker.log` (check with `tail -f` or `strings` for binary content)
 
-## Current Issue: Cabal Version Mismatch
+## Current Issue: Cabal Version Compatibility
+
+### GHC 8.10.7 Limitations
+- **GHC 8.10.7 ships with Cabal library 3.2.1.0**
+- **Cabal 3.2 can ONLY parse `.cabal` files with `cabal-version:` up to 3.0**
+- **Packages requiring `cabal-version: 3.4` CANNOT be built with GHC 8.10.7**
+- This is a fundamental limitation - even pre-generated .nix files won't help because the .cabal file must still be parsed during build
 
 ### Problem
-The latest versions of some packages use `cabal-version >= 3.4` which is not supported by the cabal2nix version in nixpkgs (only supports up to 3.4).
+Many modern packages (2024+) use `cabal-version: 3.4` which requires Cabal 3.4+ to parse.
+GHC 8.10.7's Cabal 3.2 cannot read these files at all.
 
-### Solution: Pre-Generate .nix Files
-Use modern cabal2nix (2.20.1+) installed outside Nix to generate .nix files for problematic packages:
-1. Generate with: `cabal2nix https://github.com/{owner}/{repo}/archive/{commit}.tar.gz --subpath {path} > generated-nix-expressions/{package}.nix`
-2. Modify generated file to accept `src` as parameter
-3. Update overlay to use `callPackage` with generated file and pass `src` from thunk
+### Solution
+**Set incompatible packages to `null` with explanatory comments:**
+- Document that package requires cabal-version > 3.0
+- Note that it's incompatible with GHC 8.10.7 (Cabal 3.2)
+- Add TODO comment for when upgrading to GHC 9.2+ (which includes Cabal 3.6+)
 
 ### Proactive cabal-version Checking
 **Always scan for problematic packages BEFORE building:**
 1. Check each thunk's `github.json` to get commit hash and repo
 2. Fetch `.cabal` file from GitHub at that commit using `fetch_webpage`
-3. Look for `cabal-version:` field - if >= 3.4, it needs pre-generation
-4. Pre-generate ALL problematic packages before attempting build
+3. Look for `cabal-version:` field - if > 3.0, it's INCOMPATIBLE with GHC 8.10.7
+4. Set package to `null` immediately rather than attempting build
 5. This saves hours of iterative debugging!
 
 ### Error Pattern
 ```
+Setup: Failed parsing "./package.cabal"
 *** cannot parse "/nix/store/.../package.cabal":
 Unsupported cabal-version 3.4. See https://github.com/haskell/cabal/issues/4899.
 ```
+
+### Known Incompatible Packages (cabal-version > 3.0)
+- **lsm-tree**: cabal-version 3.4 (all versions since Jan 2025)
+- **bloomfilter-blocked**: cabal-version 3.4
+- **cardano-lmdb**: cabal-version 3.0 but uses internal libraries incompatible with Cabal 3.2
+- **data-elevator**: requires base >=4.16 (GHC 9.2+)
+- **non-integral**: requires base >=4.18 (GHC 9.6+) since May 2025
 
 ## Package Update Workflow
 
@@ -110,7 +125,7 @@ Unsupported cabal-version 3.4. See https://github.com/haskell/cabal/issues/4899.
 1. ALWAYS check all-cabal-hashes BEFORE trying callHackage or GitHub
 2. Use fetch_webpage: https://raw.githubusercontent.com/commercialhaskell/all-cabal-hashes/hackage/{package}/{version}/{package}.cabal
 3. If 404, package is NOT in all-cabal-hashes - skip to Step 3 (GitHub)
-4. If found, check cabal-version requirement (if >= 3.4, may need special handling)
+4. If found, check cabal-version requirement (if > 3.0, INCOMPATIBLE with GHC 8.10.7)
 5. Proceed to Step 2 if package exists in all-cabal-hashes
 ```
 
@@ -118,7 +133,7 @@ Unsupported cabal-version 3.4. See https://github.com/haskell/cabal/issues/4899.
 ```
 1. Use fetch_webpage to check Hackage: https://hackage.haskell.org/package/{package}
 2. Note all available versions and their release dates
-3. Check cabal-version requirement (if >= 3.4, may need special handling)
+3. Check cabal-version requirement (if > 3.0, INCOMPATIBLE with GHC 8.10.7)
 4. IMPORTANT: Hackage existence doesn't guarantee all-cabal-hashes availability!
 ```
 
