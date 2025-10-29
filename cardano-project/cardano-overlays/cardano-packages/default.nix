@@ -75,12 +75,9 @@ in self: super: {
   cardano-data = self.callCabal2nix "cardano-data" (deps.cardano-ledger + "/libs/cardano-data") {};
   vector-map = self.callCabal2nix "vector-map" (deps.cardano-ledger + "/libs/vector-map") {};
   set-algebra = self.callCabal2nix "set-algebra" (deps.cardano-ledger + "/libs/set-algebra") {};
-  # non-integral: NOT COMPATIBLE with GHC 8.10.7
-  # All versions since May 2025 require base >=4.18 (GHC 9.6+).
-  # Older versions from cardano-ledger before May 2025 would work, but downgrading
-  # cardano-ledger would break many other packages. Setting to null for now.
-  # TODO: When upgrading to GHC 9.6+, restore from deps.cardano-ledger + "/libs/non-integral"
-  non-integral = null;
+  # non-integral: RESTORED for GHC 9.6.7 (base-4.18)
+  # Now compatible with GHC 9.6+ which provides base >=4.18
+  non-integral = self.callCabal2nix "non-integral" (deps.cardano-ledger + "/libs/non-integral") {};
   small-steps = haskellLib.dontCheck (self.callCabal2nix "small-steps" (deps.cardano-ledger + "/libs/small-steps") {});
   small-steps-test = haskellLib.dontCheck (haskellLib.doJailbreak (self.callCabal2nix "small-steps-test" (deps.cardano-ledger + "/libs/small-steps-test") {}));
   byron-spec-chain = haskellLib.dontCheck (haskellLib.doJailbreak (self.callCabal2nix "byron-spec-chain" (deps.cardano-ledger + "/eras/byron/chain/executable-spec") {}));
@@ -321,10 +318,9 @@ in self: super: {
   }) {});
   # crypton-connection 0.4.1 (from Hackage)
   crypton-connection = haskellLib.dontCheck (self.callHackage "crypton-connection" "0.4.1" {});
-  # data-elevator: NOT NEEDED with GHC 8.10.7 (only required when impl(ghc >=9.4) in lsm-tree)
-  # All versions require base >=4.16 (GHC 9.2+), but lsm-tree's conditional build-depends
-  # excludes it when using older GHC versions.
-  data-elevator = null;
+  # data-elevator: RESTORED for GHC 9.6.7 (required by lsm-tree when impl(ghc >=9.4))
+  # Now available since GHC 9.6+ provides base >=4.16
+  data-elevator = haskellLib.dontCheck (self.callHackage "data-elevator" "0.1.0.1" {});
   # cardano-git-rev 0.1.3.0 (from CHaP, in cardano-node monorepo)
   # Using older version because 0.2.2.1 requires base >=4.18 (GHC 9.6+)
   # Version 0.1.3.0 supports base >=4.14 which works with GHC 8.10.7
@@ -355,10 +351,15 @@ in self: super: {
     stripRoot = true;
   }) {});
   # bloomfilter-blocked 0.1.0.0 (from GitHub IntersectMBO/lsm-tree monorepo)
-  # INCOMPATIBLE WITH GHC 8.10.7: cabal-version 3.4 not supported by Cabal 3.2
-  # Pre-generated .nix doesn't help - cabal file must still be parsed during build
-  # TODO: When upgrading to GHC 9.2+, restore from IntersectMBO/lsm-tree
-  bloomfilter-blocked = null;
+  # RESTORED for GHC 9.6.7: Uses pre-generated .nix due to cabal-version 3.4 requirement
+  bloomfilter-blocked = haskellLib.dontCheck (self.callPackage ../generated-nix-expressions/bloomfilter-blocked.nix {
+    src = pkgs.fetchFromGitHub {
+      owner = "IntersectMBO";
+      repo = "lsm-tree";
+      rev = "645329036a2bf59cde9faa455eb4f8931bd0d121";  # tag blockio-0.1.0.1 (same monorepo)
+      sha256 = "1b4z5m536ll8al1xm84qc5wiwqmfsagx81dqymqcffsjlbi3hxwv";
+    };
+  });
   FailT = haskellLib.dontCheck (self.callCabal2nix "FailT" (pkgs.fetchFromGitHub {
     owner = "lehins";
     repo = "FailT";
@@ -432,12 +433,14 @@ in self: super: {
     sha256 = "03j9bkb1yf5l3z7v0mz776k3gmganwxldpp3ns89qc9s1j63fa99";
   }) {});
   # cardano-lmdb 0.4.0.3 (from GitHub input-output-hk/haskell-lmdb)
-  # INCOMPATIBLE WITH GHC 8.10.7: Uses internal library (cabal-version: 3.0) which creates
-  # cyclic dependency with Cabal 3.2 (GHC 8.10.7). The package has both a main library
-  # and an internal "library ffi" which Cabal 3.2 cannot properly resolve.
-  # Tested-with: GHC ==8.10 but requires Cabal 3.4+ for internal library support.
-  # TODO: When upgrading to GHC 9.2+, restore from GitHub input-output-hk/haskell-lmdb
-  cardano-lmdb = null;
+  # RESTORED for GHC 9.6.7: GHC 9.6.7 includes Cabal 3.10+ which properly handles internal libraries
+  # The package has both a main library and an internal "library ffi" which Cabal 3.2 could not resolve.
+  cardano-lmdb = haskellLib.dontCheck (self.callCabal2nix "cardano-lmdb" (pkgs.fetchFromGitHub {
+    owner = "input-output-hk";
+    repo = "haskell-lmdb";
+    rev = "f8ad4d9ccafdb9c315b3c66e78917c561d812244";  # tag cardano-lmdb-0.4.0.3
+    sha256 = "0nmial9i86l23m8bb7j56vqykqx8fbmlxd0r21fci98gsay0j2l7";
+  }) {});
   # cardano-lmdb-simple 0.8.1.0 (from GitHub input-output-hk/lmdb-simple)
   cardano-lmdb-simple = haskellLib.dontCheck (self.callCabal2nix "cardano-lmdb-simple" (pkgs.fetchFromGitHub {
     owner = "input-output-hk";
