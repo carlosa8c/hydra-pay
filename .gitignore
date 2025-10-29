@@ -8,6 +8,8 @@ config/github_token
 result
 result.tar
 build-docker.nix
+build-in-docker.log
+*.log
 
 # Nix/direnv noise (if used)
 .direnv/
