@@ -46,7 +46,11 @@ let
         plutus-tx = haskellLib.dontCheck super.plutus-tx;
 
         bytestring-aeson-orphans = haskellLib.doJailbreak super.bytestring-aeson-orphans;
-        aeson-gadt-th = haskellLib.doJailbreak (haskellLib.disableCabalFlag (self.callCabal2nix "aeson-gadt-th" deps.aeson-gadt-th { nativeBuildInputs = [ pkgs.nix-prefetch ]; }) "build-readme");
+        aeson-gadt-th = haskellLib.dontCheck (haskellLib.doJailbreak (haskellLib.disableCabalFlag (
+          self.callPackage ./cardano-project/cardano-overlays/generated-nix-expressions/aeson-gadt-th.nix {
+            src = deps.aeson-gadt-th;
+          }
+        ) "build-readme"));
         string-interpolate = haskellLib.doJailbreak (haskellLib.dontCheck super.string-interpolate);
 
         cardano-transaction = haskellLib.overrideCabal super.cardano-transaction (drv: {

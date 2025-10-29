@@ -87,14 +87,20 @@
               gitMinimal = super.git;
             })
             (self: super: let
-              # Fetch newer nixpkgs (24.05) for updated cabal2nix that supports cabal-version 3.8+
-              newerNixpkgs = builtins.fetchTarball {
-                url = "https://github.com/NixOS/nixpkgs/archive/nixos-24.05.tar.gz";
-                sha256 = "1lr1h35prqkd1mkmzriwlpvxcb34kmhc9dnr48gkm8hh089hifmx";
+              # Build cabal2nix from source with latest Cabal library from Hackage (supports cabal-version 3.8+)
+              # nixpkgs (even unstable) doesn't have new enough cabal2nix yet
+              cabal2nixSrc = builtins.fetchGit {
+                url = "https://github.com/NixOS/cabal2nix";
+                ref = "master";
               };
-              newerPkgs = import newerNixpkgs { inherit (self) system; };
+              # Get the latest Cabal library from Hackage
+              latestCabal = super.haskell.packages.ghc98.callHackage "Cabal" "3.14.0.0" {};
+              # Build cabal2nix with the latest Cabal library
+              customCabal2nix = super.haskell.packages.ghc98.callCabal2nix "cabal2nix" "${cabal2nixSrc}/cabal2nix" {
+                Cabal = latestCabal;
+              };
             in {
-              # Use newer cabal2nix that supports cabal-version 3.8+
+              # Wrap the custom-built cabal2nix with our prefetch shim
               cabal2nix = super.runCommand "cabal2nix-with-prefetch-shim" { } ''
                 mkdir -p $out/bin
                 # Wrapper to ensure $out/bin is first on PATH and provide prefetch helper
@@ -104,7 +110,7 @@
                 # Avoid proxies breaking file:// URLs used by cabal2nix for local Nix store paths
                 unset http_proxy HTTP_PROXY https_proxy HTTPS_PROXY all_proxy ALL_PROXY no_proxy NO_PROXY || true
                 export PATH="$out/bin:${super.nix}/bin:${super.coreutils}/bin:${super.findutils}/bin:${super.gnused}/bin:${super.gnugrep}/bin:${super.gnutar}/bin:${super.xz}/bin:${super.gzip}/bin:${super.bzip2}/bin:${super.curl.bin}/bin:$PATH"
-                exec ${newerPkgs.cabal2nix}/bin/cabal2nix "$@"
+                exec ${customCabal2nix}/bin/cabal2nix "$@"
                 EOS
                 chmod +x $out/bin/cabal2nix
                 # Provide nix-prefetch-url in the same first PATH dir
@@ -126,7 +132,7 @@
                   # Avoid proxies breaking file:// URLs used by cabal2nix for local Nix store paths
                   unset http_proxy HTTP_PROXY https_proxy HTTPS_PROXY all_proxy ALL_PROXY no_proxy NO_PROXY || true
                   export PATH="$out/bin:${super.nix}/bin:${super.coreutils}/bin:${super.findutils}/bin:${super.gnused}/bin:${super.gnugrep}/bin:${super.gnutar}/bin:${super.xz}/bin:${super.gzip}/bin:${super.bzip2}/bin:${super.curl.bin}/bin:$PATH"
-                  exec ${newerPkgs.cabal2nix}/bin/cabal2nix "$@"
+                  exec ${customCabal2nix}/bin/cabal2nix "$@"
                   EOS
                   chmod +x $out/bin/cabal2nix
                   cat > $out/bin/nix-prefetch-url <<'EOS'
@@ -263,7 +269,11 @@ in {
       });
       # reflex = haskellLib.doJailbreak (haskellLib.dontCheck (self.callCabal2nix "reflex" deps.reflex {}));
       commutative-semigroups = self.callCabal2nix "commutative-semigroups" deps.commutative-semigroups {};
-      aeson-gadt-th = haskellLib.doJailbreak (self.callCabal2nix "aeson-gadt-th" deps.aeson-gadt-th {});
+      aeson-gadt-th = haskellLib.dontCheck (haskellLib.doJailbreak (
+        self.callPackage ./cardano-overlays/generated-nix-expressions/aeson-gadt-th.nix {
+          src = deps.aeson-gadt-th;
+        }
+      ));
       deriving-compat = self.callHackage "deriving-compat" "0.6" {};
       vessel = haskellLib.doJailbreak (self.callCabal2nix "vessel" deps.vessel {});
       dependent-monoidal-map = haskellLib.doJailbreak super.dependent-monoidal-map;

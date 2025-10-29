@@ -7,6 +7,7 @@
 - Use Hackage, GitHub releases, and all-cabal-hashes to verify actual available versions
 - **NEVER guess package versions** - always check online first using fetch_webpage
 - **NEVER guess package paths** - always verify thunk paths exist before adding packages
+- **ALWAYS check all-cabal-hashes FIRST** - before trying callHackage, verify package exists there
 - When fetching from GitHub directly, use nix-prefetch-url to get correct SHA256 hashes
 - Prioritize stability over bleeding edge - use released tags when available
 
@@ -17,6 +18,14 @@
 - Update Nix overlays and package definitions as needed
 
 ## Current Build Environment
+
+### Thunk Path References (CRITICAL)
+**IMPORTANT**: In `cardano-project/cardano-overlays/cardano-packages/default.nix`:
+- `deps` refers to `cardano-project/cardano-overlays/cardano-packages/dep/`
+- `parentDeps` refers to `cardano-project/dep/`
+- `topLevelDeps` refers to `/dep/` (workspace root)
+
+**Never forget**: When you see `deps.io-sim`, it's `cardano-project/cardano-overlays/cardano-packages/dep/io-sim`, NOT `/dep/io-sim`!
 
 ### Docker Setup
 - **Host**: macOS (Apple Silicon)
@@ -38,19 +47,27 @@
 ## Current Issue: Cabal Version Mismatch
 
 ### Problem
-The latest versions of some packages (like cuddle) use `cabal-version: 3.4` which is not supported by the cabal2nix version in the current nixos/nix image.
+The latest versions of some packages use `cabal-version >= 3.4` which is not supported by the cabal2nix version in nixpkgs (only supports up to 3.4).
+
+### Solution: Pre-Generate .nix Files
+Use modern cabal2nix (2.20.1+) installed outside Nix to generate .nix files for problematic packages:
+1. Generate with: `cabal2nix https://github.com/{owner}/{repo}/archive/{commit}.tar.gz --subpath {path} > generated-nix-expressions/{package}.nix`
+2. Modify generated file to accept `src` as parameter
+3. Update overlay to use `callPackage` with generated file and pass `src` from thunk
+
+### Proactive cabal-version Checking
+**Always scan for problematic packages BEFORE building:**
+1. Check each thunk's `github.json` to get commit hash and repo
+2. Fetch `.cabal` file from GitHub at that commit using `fetch_webpage`
+3. Look for `cabal-version:` field - if >= 3.4, it needs pre-generation
+4. Pre-generate ALL problematic packages before attempting build
+5. This saves hours of iterative debugging!
 
 ### Error Pattern
 ```
-*** cannot parse "/nix/store/.../cuddle.cabal":
+*** cannot parse "/nix/store/.../package.cabal":
 Unsupported cabal-version 3.4. See https://github.com/haskell/cabal/issues/4899.
 ```
-
-### Options to Consider
-1. **Use older package versions** that have cabal-version ≤ 3.0
-2. **Upgrade Nix environment** to support cabal-version 3.4
-3. **Switch Docker base image** to one with newer cabal2nix
-4. **Build from source repos** instead of using cabal2nix for problematic packages
 
 ## Package Update Workflow
 
@@ -82,7 +99,16 @@ Unsupported cabal-version 3.4. See https://github.com/haskell/cabal/issues/4899.
 - Very recent package versions
 - Packages with cabal-version >= 3.4 (if cabal2nix doesn't support it)
 
-### Step 1: Verify Version Exists on Hackage
+### Step 1: Check all-cabal-hashes FIRST
+```
+1. ALWAYS check all-cabal-hashes BEFORE trying callHackage or GitHub
+2. Use fetch_webpage: https://raw.githubusercontent.com/commercialhaskell/all-cabal-hashes/hackage/{package}/{version}/{package}.cabal
+3. If 404, package is NOT in all-cabal-hashes - skip to Step 3 (GitHub)
+4. If found, check cabal-version requirement (if >= 3.4, may need special handling)
+5. Proceed to Step 2 if package exists in all-cabal-hashes
+```
+
+### Step 2: Verify Version Exists on Hackage
 ```
 1. Use fetch_webpage to check Hackage: https://hackage.haskell.org/package/{package}
 2. Note all available versions and their release dates
@@ -90,32 +116,37 @@ Unsupported cabal-version 3.4. See https://github.com/haskell/cabal/issues/4899.
 4. IMPORTANT: Hackage existence doesn't guarantee all-cabal-hashes availability!
 ```
 
-### Step 2: Try callHackage First (Test During Build)
+### Step 3: Try callHackage First (Only if in all-cabal-hashes)
 ```
-1. Add package with callHackage using verified Hackage version
-2. Start build and watch for "Not found in archive" errors
+1. Add package with callHackage using verified version from all-cabal-hashes
+2. Start build and watch for "Not found in archive" errors (shouldn't happen if Step 1 passed)
 3. If it works: keep callHackage (stable, well-tested approach)
-4. If it fails: proceed to Step 3 (GitHub approach)
+4. If it fails: something is wrong, re-check all-cabal-hashes
 ```
 
-### Step 3: Get Package from GitHub (Only if callHackage Failed)
+### Step 4: Get Package from GitHub (Only if NOT in all-cabal-hashes)
 ```
-ONLY use this if Step 2 (callHackage) failed with "Not found in archive"
+ONLY use this if Step 1 showed package is NOT in all-cabal-hashes (404 error)
 
 1. Check releases/tags: https://github.com/{owner}/{repo}/tags
 2. Find tag matching desired version (e.g., "v0.1.1" or "0.1")
 3. Get commit hash from tag page
-4. Fetch SHA256 hash:
+4. **Check if monorepo**: Use fetch_webpage to browse repo at commit hash
+   - Look for multiple subdirectories with .cabal files
+   - Example: https://github.com/{owner}/{repo}/tree/{commit-hash}
+   - If package.cabal is in root: single package
+   - If package.cabal is in subdirectory: monorepo (need --subpath)
+5. Fetch SHA256 hash:
    docker run --rm nixos/nix:latest nix-prefetch-url --unpack https://github.com/{owner}/{repo}/archive/refs/tags/{tag}.tar.gz
-5. Update package definition to use fetchFromGitHub (see Step 4)
+6. Update package definition to use fetchFromGitHub (see Step 5)
 ```
 
-### Step 4: Update Package Definition
+### Step 5: Update Package Definition
 ```nix
-# If callHackage worked (Step 2 succeeded):
+# If callHackage worked (Step 1 found package in all-cabal-hashes, Step 3 succeeded):
 package = haskellLib.dontCheck (self.callHackage "package" "version" {});
 
-# If callHackage failed (Step 2 failed, using GitHub from Step 3):
+# If callHackage failed (Step 1 showed 404, using GitHub from Step 4):
 # IMPORTANT: Check if repository is a monorepo (has subdirectories with .cabal files)
 # If monorepo, use callCabal2nixWithOptions with --subpath:
 package = haskellLib.dontCheck (self.callCabal2nixWithOptions "package" (pkgs.fetchFromGitHub {
@@ -143,8 +174,13 @@ package = null;  # Explain why in comment
 - **uuid**: subdirectory `uuid/`
 - **obelisk**: subdirectories `lib/backend/`, `lib/frontend/`, `lib/route/`, `lib/executable-config/lookup/`
 - **rhyolite**: subdirectories `beam/db/`, `beam/task/backend/`, `beam/task/types/`
+- **quickcheck-dynamic**: subdirectory `quickcheck-dynamic/` (input-output-hk/quickcheck-dynamic)
+- **blockio**: subdirectory `blockio/` (IntersectMBO/lsm-tree)
+- **lsm-tree**: subdirectory `lsm-tree/` (IntersectMBO/lsm-tree)
+- **bloomfilter-blocked**: subdirectory `bloomfilter-blocked/` (IntersectMBO/lsm-tree)
+- **cardano-git-rev**: subdirectory `cardano-git-rev/` (IntersectMBO/cardano-base)
 
-### Step 5 (cardano-ledger packages only): Verify Thunk Paths
+### Step 6 (cardano-ledger packages only): Verify Thunk Paths
 ```
 For packages from deps.cardano-ledger thunk:
 1. Read thunk's github.json to get commit hash
@@ -153,7 +189,7 @@ For packages from deps.cardano-ledger thunk:
 4. If path doesn't exist, set package to null - don't guess!
 ```
 
-### Step 5 (cardano-ledger packages only): Verify Thunk Paths
+### Step 6 (cardano-ledger packages only): Verify Thunk Paths
 ```
 For packages from deps.cardano-ledger thunk:
 1. Read thunk's github.json to get commit hash
@@ -162,7 +198,7 @@ For packages from deps.cardano-ledger thunk:
 4. If path doesn't exist, set package to null - don't guess!
 ```
 
-### Step 6: Test Build
+### Step 7: Test Build
 ```bash
 ./build-in-docker.sh > build-in-docker.log 2>&1 &
 # Wait for completion, then:

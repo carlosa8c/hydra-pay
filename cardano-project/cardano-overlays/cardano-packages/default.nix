@@ -17,6 +17,14 @@ in self: super: {
   # Old libpq-0.4.1 is marked as broken in nixpkgs
   libpq = super.postgresql-libpq;
   
+  # Fix broken bytestring-trie: unmark as broken
+  # bytestring-trie-0.2.5.0 is marked as broken in nixpkgs but cardano-api needs it
+  bytestring-trie = haskellLib.markUnbroken super.bytestring-trie;
+  
+  # Fix broken latex-svg-image: unmark as broken
+  # latex-svg-image-0.2 is marked as broken in nixpkgs but needed for build
+  latex-svg-image = haskellLib.markUnbroken super.latex-svg-image;
+  
   # cardano-prelude
   # cardano-prelude = self.callCabal2nix "cardano-prelude" (deps.cardano-prelude + "/cardano-prelude") {};
   # cardano-prelude-test - handled inline where needed
@@ -51,6 +59,8 @@ in self: super: {
   cardano-ledger-allegra = haskellLib.dontCheck (haskellLib.enableCabalFlag (haskellLib.doJailbreak (self.callCabal2nix "cardano-ledger-allegra" (deps.cardano-ledger + "/eras/allegra/impl") {})) "development");
   cardano-ledger-mary = haskellLib.dontCheck (haskellLib.enableCabalFlag (haskellLib.doJailbreak (self.callCabal2nix "cardano-ledger-mary" (deps.cardano-ledger + "/eras/mary/impl") {})) "development");
   cardano-ledger-alonzo = haskellLib.dontCheck (haskellLib.enableCabalFlag (haskellLib.doJailbreak (self.callCabal2nix "cardano-ledger-alonzo" (deps.cardano-ledger + "/eras/alonzo/impl") {})) "development");
+  cardano-ledger-alonzo-test = haskellLib.dontCheck (self.callCabal2nix "cardano-ledger-alonzo-test" (deps.cardano-ledger + "/eras/alonzo/test-suite") {});
+  cardano-ledger-shelley-ma-test = haskellLib.dontCheck (self.callCabal2nix "cardano-ledger-shelley-ma-test" (deps.cardano-ledger + "/eras/shelley-ma/test-suite") {});
   cardano-ledger-core = haskellLib.dontCheck (haskellLib.doJailbreak (self.callCabal2nix "cardano-ledger-core" (deps.cardano-ledger + "/libs/cardano-ledger-core") {}));
   cardano-ledger-api = haskellLib.dontCheck (haskellLib.doJailbreak (self.callCabal2nix "cardano-ledger-api" (deps.cardano-ledger + "/libs/cardano-ledger-api") {}));
   cardano-protocol-tpraos = haskellLib.dontCheck (self.callCabal2nix "cardano-protocol-tpraos" (deps.cardano-ledger + "/libs/cardano-protocol-tpraos") {});
@@ -133,18 +143,28 @@ in self: super: {
   lobemo-scribe-systemd = self.callCabal2nix "lobemo-scribe-systemd" (deps.iohk-monitoring-framework + "/plugins/scribe-systemd") {};
 
   # ouroboros-network
-  # Note: Many ouroboros-network-* packages don't exist in thunk at commit 4eb9750
+  # Note: ouroboros-network uses cabal-version 3.4, so we use pre-generated .nix file
+  # Many ouroboros-network-* subpackages don't exist in thunk at commit 4eb9750
   # They were likely moved to a different repo or restructured
-  # ouroboros-network = haskellLib.dontCheck (haskellLib.doJailbreak (self.callCabal2nix "ouroboros-network" (deps.ouroboros-network + "/ouroboros-network") {}));
-  ouroboros-network-framework = null;  # Path doesn't exist in thunk at commit 4eb9750
+  ouroboros-network = haskellLib.dontCheck (haskellLib.doJailbreak (self.callPackage ../generated-nix-expressions/ouroboros-network.nix {
+    src = deps.ouroboros-network;
+  }));
+  ouroboros-network-framework = haskellLib.dontCheck (haskellLib.doJailbreak (self.callCabal2nix "ouroboros-network-framework" (deps.ouroboros-network + "/ouroboros-network-framework") {}));
   ouroboros-network-testing = null;  # Path doesn't exist in thunk at commit 4eb9750
   ouroboros-network-mock = null;  # Path doesn't exist in thunk at commit 4eb9750
-  ouroboros-network-api = null;  # Path doesn't exist in thunk at commit 4eb9750
-  ouroboros-network-protocols = null;  # Path doesn't exist in thunk at commit 4eb9750
+  # ouroboros-network-api and ouroboros-network-protocols are public sublibraries of ouroboros-network package
+  # (defined in ouroboros-network.cabal as "library api" and "library protocols")
+  # Make them aliases to the main ouroboros-network package so dependencies can reference them
+  ouroboros-network-api = self.ouroboros-network;
+  ouroboros-network-protocols = self.ouroboros-network;
   ouroboros-consensus = haskellLib.doJailbreak (self.callCabal2nix "ouroboros-consensus" (deps.ouroboros-consensus + "/ouroboros-consensus") {});
   ouroboros-consensus-byron = haskellLib.doJailbreak (self.callCabal2nix "ouroboros-consensus-byron" (deps.ouroboros-consensus + "/ouroboros-consensus-byron") {});
   ouroboros-consensus-shelley = haskellLib.doJailbreak (self.callCabal2nix "ouroboros-consensus-shelley" (deps.ouroboros-consensus + "/ouroboros-consensus-shelley") {});
   ouroboros-consensus-cardano = haskellLib.doJailbreak (self.callCabal2nix "ouroboros-consensus-cardano" (deps.ouroboros-consensus + "/ouroboros-consensus-cardano") {});
+  ouroboros-consensus-diffusion = haskellLib.doJailbreak (self.callCabal2nix "ouroboros-consensus-diffusion" (deps.ouroboros-consensus + "/ouroboros-consensus-diffusion") {});
+  ouroboros-consensus-protocol = haskellLib.doJailbreak (self.callCabal2nix "ouroboros-consensus-protocol" (deps.ouroboros-consensus + "/ouroboros-consensus-protocol") {});
+  sop-extras = self.callCabal2nix "sop-extras" (deps.ouroboros-consensus + "/sop-extras") {};
+  strict-sop-core = self.callCabal2nix "strict-sop-core" (deps.ouroboros-consensus + "/strict-sop-core") {};
   monoidal-synchronisation = self.callCabal2nix "monoidal-synchronisation" (deps.ouroboros-network + "/monoidal-synchronisation") {};
   network-mux = haskellLib.dontCheck (haskellLib.doJailbreak (self.callCabal2nix "network-mux" (deps.ouroboros-network + "/network-mux") {}));
   ntp-client = haskellLib.dontCheck (haskellLib.doJailbreak (self.callCabal2nix "ntp-client" (deps.ouroboros-network + "/ntp-client") {}));
@@ -190,7 +210,7 @@ in self: super: {
     rev = "432ea90445d3dd84c73facabc92d3f90a82142f6";  # initial commit for version 1.0.0.0
     sha256 = "1bbbbwlv3xiv7zkpk25m7v0j6pdxs890qfvap7jdl44nickzrbsz";
   }) {});
-  quickcheck-dynamic = self.callCabal2nix "quickcheck-dynamic" (deps.plutus + "/quickcheck-dynamic") {};
+  # quickcheck-dynamic moved to line 341 (from GitHub, not plutus thunk)
   word-array = self.callCabal2nix "word-array" (deps.plutus + "/word-array") {};
   # plutus misc
   # flat = self.callCabal2nix "flat" deps.flat {};
@@ -203,15 +223,47 @@ in self: super: {
   cardano-addresses-cli = haskellLib.dontCheck (self.callCabal2nixWithOptions "cardano-addresses-cli" (deps.cardano-addresses + "/command-line") "--no-hpack" { cardano-address = null; });
 
   # io-sim
-  io-classes = self.callCabal2nix "io-classes" (deps.io-sim + "/io-classes") {};
-  io-sim = self.callCabal2nix "io-sim" (deps.io-sim + "/io-sim") {};
-  strict-stm = self.callCabal2nix "strict-stm" (deps.io-sim + "/strict-stm") {};
-  strict-checked-vars = self.callCabal2nix "strict-checked-vars" deps.strict-checked-vars {};
+  # io-classes and io-sim use cabal-version 3.4, so we use pre-generated .nix files
+  io-classes = haskellLib.dontCheck (self.callPackage ../generated-nix-expressions/io-classes.nix {
+    src = deps.io-sim;
+  });
+  io-sim = haskellLib.dontCheck (self.callPackage ../generated-nix-expressions/io-sim.nix {
+    src = deps.io-sim;
+  });
+  # Note: strict-stm and strict-mvar are sublibraries of io-classes in newer versions (io-classes:strict-stm, io-classes:strict-mvar)
+  # But they exist as deprecated standalone packages at commit a22dced (May 17, 2024)
+  # strict-checked-vars needs them as dependencies, so we use the deprecated standalone versions
+  strict-mvar = haskellLib.dontCheck (self.callCabal2nixWithOptions "strict-mvar" (pkgs.fetchFromGitHub {
+    owner = "input-output-hk";
+    repo = "io-sim";
+    rev = "a22dced7d012d10227ab0fe370889665c064caf9";  # tag strict-mvar-1.5.0.0
+    sha256 = "1sv5z8288031mdwlvm0v71yv3avw5zdg8bswj5y5idzqk12c9h2k";
+  }) "--subpath strict-mvar" {});
+  strict-stm = haskellLib.dontCheck (self.callCabal2nixWithOptions "strict-stm" (pkgs.fetchFromGitHub {
+    owner = "input-output-hk";
+    repo = "io-sim";
+    rev = "a22dced7d012d10227ab0fe370889665c064caf9";  # tag strict-stm-1.5.0.0
+    sha256 = "1sv5z8288031mdwlvm0v71yv3avw5zdg8bswj5y5idzqk12c9h2k";
+  }) "--subpath strict-stm" {});
+  # strict-checked-vars from cardano-base monorepo (newer commit than cardanoBaseSrc)
+  strict-checked-vars = self.callCabal2nixWithOptions "strict-checked-vars" (pkgs.fetchFromGitHub {
+    owner = "input-output-hk";
+    repo = "cardano-base";
+    rev = "e545ee648cb7ef9d2715286dbc38987ffc3b5e4d";  # commit from strict-checked-vars thunk
+    sha256 = "1wg8v38nfm98jdaxkswsb0qfpkdisc5a4gxmzidg248w5pf5fa0k";
+  }) "--subpath strict-checked-vars" {};
 
   # typed-protocols
-  typed-protocols = self.callCabal2nix "typed-protocols" (deps.typed-protocols + "/typed-protocols") {};
-  typed-protocols-cborg = self.callCabal2nix "typed-protocols-cborg" (deps.typed-protocols + "/typed-protocols-cborg") {};
-  typed-protocols-examples = self.callCabal2nix "typed-protocols-examples" (deps.typed-protocols + "/typed-protocols-examples") {};
+  # All typed-protocols packages use cabal-version 3.4, so we use pre-generated .nix files
+  typed-protocols = haskellLib.dontCheck (self.callPackage ../generated-nix-expressions/typed-protocols.nix {
+    src = deps.typed-protocols;
+  });
+  typed-protocols-cborg = haskellLib.dontCheck (self.callPackage ../generated-nix-expressions/typed-protocols-cborg.nix {
+    src = deps.typed-protocols;
+  });
+  typed-protocols-examples = haskellLib.dontCheck (self.callPackage ../generated-nix-expressions/typed-protocols-examples.nix {
+    src = deps.typed-protocols;
+  });
 
   # ekg-json
   ekg-json = self.callCabal2nix "ekg-json" deps.ekg-json {};
@@ -239,6 +291,70 @@ in self: super: {
         --replace ", toHashMapText" ""
     '';
   };
+  # character-ps 0.1 (from Hackage tarball directly, not in all-cabal-hashes archive)
+  character-ps = haskellLib.dontCheck (self.callCabal2nix "character-ps" (pkgs.fetchzip {
+    url = "https://hackage.haskell.org/package/character-ps-0.1/character-ps-0.1.tar.gz";
+    sha256 = "13yvm3ifpk6kfqba49r1xz0xyxcn0jw7xdkkblzsb5v0nf64g4dx";
+    stripRoot = true;
+  }) {});
+  # integer-conversion 0.1.1 (from Hackage tarball directly, not in all-cabal-hashes archive)
+  integer-conversion = haskellLib.dontCheck (self.callCabal2nix "integer-conversion" (pkgs.fetchzip {
+    url = "https://hackage.haskell.org/package/integer-conversion-0.1.1/integer-conversion-0.1.1.tar.gz";
+    sha256 = "0jrch63xc80fq6s14zwi5wcmbrj8zr7anl420sq98aglx3df9yr3";
+    stripRoot = true;
+  }) {});
+  # attoparsec-aeson 2.2.2.0 (from Hackage tarball directly, not in all-cabal-hashes archive)
+  attoparsec-aeson = haskellLib.dontCheck (self.callCabal2nix "attoparsec-aeson" (pkgs.fetchzip {
+    url = "https://hackage.haskell.org/package/attoparsec-aeson-2.2.2.0/attoparsec-aeson-2.2.2.0.tar.gz";
+    sha256 = "0c1axkc1mdhhpnw2240c0nmd25ydcixdcip5v4cbkp9zbig97i07";
+    stripRoot = true;
+  }) {});
+  # crypton-connection 0.4.1 (from Hackage)
+  crypton-connection = haskellLib.dontCheck (self.callHackage "crypton-connection" "0.4.1" {});
+  # data-elevator 0.2 (from GitHub, NOT in all-cabal-hashes despite .cabal file being accessible)
+  data-elevator = haskellLib.dontCheck (self.callCabal2nix "data-elevator" (pkgs.fetchFromGitHub {
+    owner = "sgraf812";
+    repo = "data-elevator";
+    rev = "6d044fa3167d244043454ae0df4272ad451a2e1d";  # tag v0.2
+    sha256 = "13ska0x40pmq5rhd50a3r93azh65i3lz9frjn90qrpr4k2nr7cvj";
+  }) {});
+  # cardano-git-rev 0.2.2.1 (from CHaP, in cardano-base monorepo)
+  cardano-git-rev = haskellLib.dontCheck (self.callCabal2nixWithOptions "cardano-git-rev" (pkgs.fetchFromGitHub {
+    owner = "IntersectMBO";
+    repo = "cardano-base";
+    rev = "971708b0142f86507e8694351186551ac8753cf0";  # from CHaP cardano-git-rev/0.2.2.1
+    sha256 = "155npmfbil8ybvpg9bshsv2fsiwkgkkwy3ich44d4cc97a4fdhnv";
+  }) "--subpath cardano-git-rev" {});
+  # kes-agent 0.2.0.1 (from CHaP, in kes-agent monorepo)
+  kes-agent = haskellLib.dontCheck (self.callCabal2nixWithOptions "kes-agent" (pkgs.fetchFromGitHub {
+    owner = "input-output-hk";
+    repo = "kes-agent";
+    rev = "d7c27bfbf8e216920c40ed84b276d2d789c3c5ef";  # from CHaP kes-agent/0.2.0.1
+    sha256 = "1lilf9l4dr1df9kdpm134pvfx6wpg0zbbzh2vwgbxwkn2vw2sb0l";
+  }) "--subpath kes-agent" {});
+  # kes-agent-crypto 0.1.0.0 (from CHaP, in kes-agent monorepo)
+  kes-agent-crypto = haskellLib.dontCheck (self.callCabal2nixWithOptions "kes-agent-crypto" (pkgs.fetchFromGitHub {
+    owner = "input-output-hk";
+    repo = "kes-agent";
+    rev = "abe5aafc90fc837b0941504a89f7a207b589fd83";  # from CHaP kes-agent-crypto/0.1.0.0
+    sha256 = "0pf2nzgiy925pyzp88ykiqnasm446k47rfrqi094fgkqk2ghh3jh";
+  }) "--subpath kes-agent-crypto" {});
+  # serdoc-core 0.1.0.0 (from Hackage tarball directly, not in all-cabal-hashes archive)
+  serdoc-core = haskellLib.dontCheck (self.callCabal2nix "serdoc-core" (pkgs.fetchzip {
+    url = "https://hackage.haskell.org/package/serdoc-core-0.1.0.0/serdoc-core-0.1.0.0.tar.gz";
+    sha256 = "18acsigs1ynqnszhpy6gg25h2i58qscgqy4jzgx7krpqwfp3b1vd";
+    stripRoot = true;
+  }) {});
+  # bloomfilter-blocked 0.1.0.0 (from GitHub IntersectMBO/lsm-tree monorepo)
+  # Uses pre-generated .nix due to cabal-version 3.4 requirement
+  bloomfilter-blocked = haskellLib.dontCheck (self.callPackage ../generated-nix-expressions/bloomfilter-blocked.nix {
+    src = pkgs.fetchFromGitHub {
+      owner = "IntersectMBO";
+      repo = "lsm-tree";
+      rev = "d77b8e2a514de2130a4b1672066e5d74fe20559a";  # tag bloomfilter-blocked-0.1.0.0
+      sha256 = "16ip42pcjpigm8h9lky7hjjhm8vq2acdh49qwhvrk82ns612k9v2";
+    };
+  });
   FailT = haskellLib.dontCheck (self.callCabal2nix "FailT" (pkgs.fetchFromGitHub {
     owner = "lehins";
     repo = "FailT";
@@ -246,13 +362,105 @@ in self: super: {
     sha256 = "0d1fvzcs89dwicy1hza9fkrjvsms67705pamv1rnwv64zkcwr9iv";
   }) {});
   transformers-except = haskellLib.doJailbreak super.transformers-except;
+  # safe-wild-cards 1.0.0.2 (from GitHub amesgen/safe-wild-cards)
+  safe-wild-cards = haskellLib.dontCheck (self.callCabal2nix "safe-wild-cards" (pkgs.fetchFromGitHub {
+    owner = "amesgen";
+    repo = "safe-wild-cards";
+    rev = "3edf5a370595e0d1743ad30e216530ffe039483e";  # master with version 1.0.0.2
+    sha256 = "031j704x8fj6x8gz6rlwif0hhnib9pjhxyxmv03ckk19vwgdcxbx";
+  }) {});
   # fs-api 0.3.0.1 (not in all-cabal-hashes, from GitHub monorepo fs-sim)
   fs-api = haskellLib.dontCheck (self.callCabal2nixWithOptions "fs-api" (pkgs.fetchFromGitHub {
     owner = "input-output-hk";
     repo = "fs-sim";
     rev = "efd70ad35e1a5df50d9f5b80d278ae3bc12306c9";  # tag fs-api-0.3.0.1
-    sha256 = "0zdvj28micvdqncyznq0sc2bwin6daj1pssx94q8spknspciv c4i";
+    sha256 = "0zdvj28micvdqncyznq0sc2bwin6daj1pssx94q8spknspcivc4i";
   }) "--subpath fs-api" {});
+  # fs-sim 0.3.0.1 (not in all-cabal-hashes, from GitHub monorepo fs-sim)
+  fs-sim = haskellLib.dontCheck (self.callCabal2nixWithOptions "fs-sim" (pkgs.fetchFromGitHub {
+    owner = "input-output-hk";
+    repo = "fs-sim";
+    rev = "efd70ad35e1a5df50d9f5b80d278ae3bc12306c9";  # tag fs-sim-0.3.0.1
+    sha256 = "0zdvj28micvdqncyznq0sc2bwin6daj1pssx94q8spknspcivc4i";
+  }) "--subpath fs-sim" {});
+  # fingertree-rm 1.0.0.4 (from GitHub input-output-hk/anti-diffs monorepo)
+  fingertree-rm = haskellLib.dontCheck (self.callCabal2nixWithOptions "fingertree-rm" (pkgs.fetchFromGitHub {
+    owner = "input-output-hk";
+    repo = "anti-diffs";
+    rev = "bf3dd52b3a85fb075194e92b7851e5ccb3025290";  # tag fingertree-rm-1.0.0.4 & diff-containers-1.3.0.0
+    sha256 = "17cnnnisxpfj9kq409szk0rhs42qxnd6cb7cr0lrqpdgkl00rf7p";
+  }) "--subpath fingertree-rm" {});
+  # diff-containers 1.3.0.0 (from GitHub input-output-hk/anti-diffs monorepo, same commit as fingertree-rm)
+  diff-containers = haskellLib.dontCheck (self.callCabal2nixWithOptions "diff-containers" (pkgs.fetchFromGitHub {
+    owner = "input-output-hk";
+    repo = "anti-diffs";
+    rev = "bf3dd52b3a85fb075194e92b7851e5ccb3025290";  # tag diff-containers-1.3.0.0
+    sha256 = "17cnnnisxpfj9kq409szk0rhs42qxnd6cb7cr0lrqpdgkl00rf7p";
+  }) "--subpath diff-containers" {});
+  # rawlock 0.1.2.0 (from GitHub IntersectMBO/io-classes-extra monorepo)
+  rawlock = haskellLib.dontCheck (self.callCabal2nixWithOptions "rawlock" (pkgs.fetchFromGitHub {
+    owner = "IntersectMBO";
+    repo = "io-classes-extra";
+    rev = "ba56feadc779517f9b9357753080b7ccfb9dbc56";  # tag rawlock-0.1.2.0
+    sha256 = "1jlqa8z0ypmzzsy4rw3wcc58zgi8xdzfsi1n68yyq2mhay8zrwg1";
+  }) "--subpath rawlock" {});
+  # quickcheck-dynamic 4.0.0 (from GitHub input-output-hk/quickcheck-dynamic monorepo, not in all-cabal-hashes)
+  quickcheck-dynamic = haskellLib.dontCheck (self.callCabal2nixWithOptions "quickcheck-dynamic" (pkgs.fetchFromGitHub {
+    owner = "input-output-hk";
+    repo = "quickcheck-dynamic";
+    rev = "7bb43882e7ef7f48b522709ee9e33fad1abdf1df";  # tag 4.0.0
+    sha256 = "1rbyaxzp367397rkab0mxlcbvhjwvyj34by5382h8slwyga7zc59";
+  }) "--subpath quickcheck-dynamic" {});
+  # quickcheck-lockstep 0.8.1 (cabal-version 3.4, pre-generated)
+  quickcheck-lockstep = haskellLib.dontCheck (self.callPackage ../generated-nix-expressions/quickcheck-lockstep.nix {
+    src = pkgs.fetchFromGitHub {
+      owner = "well-typed";
+      repo = "quickcheck-lockstep";
+      rev = "a43ed5bcd72e9afb64436be66940af08b4cb33eb";  # tag quickcheck-lockstep-0.8.1
+      sha256 = "0xhilpiybg33zjkj8gja7jbjcgarrd1vd8yan1qygjqyhr2df9pm";
+    };
+  });
+  # quickcheck-monoid-subclasses 0.3.0.6 (from GitHub jonathanknowles/quickcheck-monoid-subclasses)
+  quickcheck-monoid-subclasses = haskellLib.dontCheck (self.callCabal2nix "quickcheck-monoid-subclasses" (pkgs.fetchFromGitHub {
+    owner = "jonathanknowles";
+    repo = "quickcheck-monoid-subclasses";
+    rev = "a2000470a6befd4d1e0e311e96804e353684b18e";  # tag 0.3.0.6
+    sha256 = "03j9bkb1yf5l3z7v0mz776k3gmganwxldpp3ns89qc9s1j63fa99";
+  }) {});
+  # cardano-lmdb 0.4.0.3 (from GitHub input-output-hk/haskell-lmdb)
+  cardano-lmdb = haskellLib.dontCheck (self.callCabal2nix "cardano-lmdb" (pkgs.fetchFromGitHub {
+    owner = "input-output-hk";
+    repo = "haskell-lmdb";
+    rev = "f8ad4d9ccafdb9c315b3c66e78917c561d812244";  # tag cardano-lmdb-0.4.0.3
+    sha256 = "0nmial9i86l23m8bb7j56vqykqx8fbmlxd0r21fci98gsay0j2l7";
+  }) {});
+  # cardano-lmdb-simple 0.8.1.0 (from GitHub input-output-hk/lmdb-simple)
+  cardano-lmdb-simple = haskellLib.dontCheck (self.callCabal2nix "cardano-lmdb-simple" (pkgs.fetchFromGitHub {
+    owner = "input-output-hk";
+    repo = "lmdb-simple";
+    rev = "fb732fdc81e45667b948d0b56427076e81bf8604";  # tag cardano-lmdb-simple-0.8.1.0
+    sha256 = "1mh2z39h3m8fflylkn5b3pph5wra4npla96531p0dr0a9rlaiv75";
+  }) {});
+  # blockio 0.1.0.1 (from GitHub IntersectMBO/lsm-tree monorepo)
+  # Uses pre-generated .nix due to cabal-version 3.4 requirement
+  blockio = haskellLib.dontCheck (self.callPackage ../generated-nix-expressions/blockio.nix {
+    src = pkgs.fetchFromGitHub {
+      owner = "IntersectMBO";
+      repo = "lsm-tree";
+      rev = "645329036a2bf59cde9faa455eb4f8931bd0d121";  # tag blockio-0.1.0.1
+      sha256 = "1b4z5m536ll8al1xm84qc5wiwqmfsagx81dqymqcffsjlbi3hxwv";
+    };
+  });
+  # lsm-tree 1.0.0.0 (from GitHub IntersectMBO/lsm-tree monorepo)
+  # Uses pre-generated .nix due to cabal-version 3.4 requirement
+  lsm-tree = haskellLib.dontCheck (self.callPackage ../generated-nix-expressions/lsm-tree.nix {
+    src = pkgs.fetchFromGitHub {
+      owner = "IntersectMBO";
+      repo = "lsm-tree";
+      rev = "9354ba49c336a42328499c9c7b598dbec9558c06";  # tag lsm-tree-1.0.0.0
+      sha256 = "0vakbphcppc77mv430q9dvqgf09xqayz1sd6frjhyiyyna9c1vp5";
+    };
+  });
   # resource-registry 0.2.0.0 (not in all-cabal-hashes, from GitHub monorepo io-classes-extra)
   resource-registry = haskellLib.dontCheck (self.callCabal2nixWithOptions "resource-registry" (pkgs.fetchFromGitHub {
     owner = "IntersectMBO";
@@ -455,7 +663,11 @@ in self: super: {
   # ---------------------------------------------------------------------------
   # From existing thunks (top-level /dep/)
   # ---------------------------------------------------------------------------
-  aeson-gadt-th = self.callCabal2nix "aeson-gadt-th" topLevelDeps.aeson-gadt-th {};
+  aeson-gadt-th = haskellLib.dontCheck (
+    self.callPackage ../generated-nix-expressions/aeson-gadt-th.nix {
+      src = topLevelDeps.aeson-gadt-th;
+    }
+  );
   bytestring-aeson-orphans = self.callCabal2nix "bytestring-aeson-orphans" topLevelDeps.bytestring-aeson-orphans {};
   constraints-extras = self.callCabal2nix "constraints-extras" topLevelDeps.constraints-extras {};
   reflex = haskellLib.dontCheck (self.callCabal2nix "reflex" topLevelDeps.reflex {});
@@ -473,17 +685,23 @@ in self: super: {
   # ---------------------------------------------------------------------------
   # From rhyolite monorepo (cardano-project/dep/rhyolite)
   # ---------------------------------------------------------------------------
-  rhyolite-beam-db = self.callCabal2nixWithOptions "rhyolite-beam-db" (pkgs.thunkSource ./dep/rhyolite) "--subpath beam/db" {};
-  rhyolite-beam-task-worker-backend = self.callCabal2nixWithOptions "rhyolite-beam-task-worker-backend" (pkgs.thunkSource ./dep/rhyolite) "--subpath beam/task/backend" {};
-  rhyolite-beam-task-worker-types = self.callCabal2nixWithOptions "rhyolite-beam-task-worker-types" (pkgs.thunkSource ./dep/rhyolite) "--subpath beam/task/types" {};
+  rhyolite-beam-db = self.callCabal2nixWithOptions "rhyolite-beam-db" parentDeps.rhyolite "--subpath beam/db" {};
+  rhyolite-beam-task-worker-backend = self.callCabal2nixWithOptions "rhyolite-beam-task-worker-backend" parentDeps.rhyolite "--subpath beam/task/backend" {};
+  rhyolite-beam-task-worker-types = self.callCabal2nixWithOptions "rhyolite-beam-task-worker-types" parentDeps.rhyolite "--subpath beam/task/types" {};
 
   # ---------------------------------------------------------------------------
   # From new cardano-api thunk (dep/cardano-api)
   # CRITICAL: cardano-api doesn't exist in old cardano-node thunk
   # It's a separate repo: IntersectMBO/cardano-api
   # NOTE: This is a monorepo - package is in cardano-api/ subdirectory
+  # NOTE: Using pre-generated .nix file because cardano-api requires cabal-version 3.8
+  #       which is not supported by the cabal2nix available in nixpkgs.
+  #       The .nix file was generated with modern cabal2nix (2.20.1) outside the build.
   # ---------------------------------------------------------------------------
-  cardano-api = haskellLib.dontCheck (self.callCabal2nixWithOptions "cardano-api" topLevelDeps.cardano-api "--subpath cardano-api" {});
+  cardano-api = haskellLib.dontCheck (self.callPackage ../generated-nix-expressions/cardano-api.nix {
+    # Pass src to point to the actual thunk instead of ./. from generated file
+    src = topLevelDeps.cardano-api;
+  });
 
   # ---------------------------------------------------------------------------
   # From Hackage - Core Dependencies
@@ -546,18 +764,18 @@ in self: super: {
   # From Hackage - HTTP/Web
   # NOTE: All versions verified on Hackage 2025-01-27
   # ---------------------------------------------------------------------------
-  http-client = self.callCabal2nix "http-client" (pkgs.fetchFromGitHub {
+  http-client = self.callCabal2nixWithOptions "http-client" (pkgs.fetchFromGitHub {
     owner = "snoyberg";
     repo = "http-client";
     rev = "a0b418c12ff3c9878f21bff92bb174c239a9cfe3";  # tag http-client-0.7.19
     sha256 = "16wwy8l6bmwwpbblvaly7y6srxyjzbs3qa1rgdcpsyk3bj75alkl";
-  }) {};
-  http-conduit = haskellLib.dontCheck (self.callCabal2nix "http-conduit" (pkgs.fetchFromGitHub {
+  }) "--subpath http-client" {};
+  http-conduit = haskellLib.dontCheck (self.callCabal2nixWithOptions "http-conduit" (pkgs.fetchFromGitHub {
     owner = "snoyberg";
     repo = "http-client";
     rev = "a0b418c12ff3c9878f21bff92bb174c239a9cfe3";  # tag http-client-0.7.19 (monorepo)
     sha256 = "16wwy8l6bmwwpbblvaly7y6srxyjzbs3qa1rgdcpsyk3bj75alkl";
-  }) {});
+  }) "--subpath http-conduit" {});
   websockets = haskellLib.dontCheck (self.callCabal2nix "websockets" (pkgs.fetchFromGitHub {
     owner = "jaspervdj";
     repo = "websockets";
@@ -565,7 +783,10 @@ in self: super: {
     sha256 = "0bdkgc4ra5fbwhjhik28w4972mj0wdrp6ryb59a2gg5m0msr9jx4";
   }) {});
   websockets-snap = haskellLib.dontCheck (self.callHackage "websockets-snap" "0.10.3.1" {});
-  snap-server = haskellLib.dontCheck (self.callHackage "snap-server" "1.1.2.1" {});
+  snap-server = haskellLib.dontCheck (self.callCabal2nix "snap-server" (pkgs.fetchzip {
+    url = "https://hackage.haskell.org/package/snap-server-1.1.2.1/snap-server-1.1.2.1.tar.gz";
+    sha256 = "09v38gwn5h1d733r3dk4dbsh6gcl4bmx9d5p18pn9i7mvwyi8ycs";
+  }) {});
 
   # ---------------------------------------------------------------------------
   # From Hackage - Utilities
@@ -582,7 +803,12 @@ in self: super: {
   hexstring = self.callHackage "hexstring" "0.11.1" {};
   io-streams = haskellLib.dontCheck (self.callHackage "io-streams" "1.5.2.2" {});
   logging-effect = self.callHackage "logging-effect" "1.4.1" {};
-  managed = self.callHackage "managed" "1.0.10" {};
+  # managed 1.0.10 (from Hackage tarball directly, not in all-cabal-hashes archive)
+  managed = self.callCabal2nix "managed" (pkgs.fetchzip {
+    url = "https://hackage.haskell.org/package/managed-1.0.10/managed-1.0.10.tar.gz";
+    sha256 = "15mcc8n3hyia029vd8b4gaa3g3kk4v9zdp8fbj1mq86gdl2yynzz";
+    stripRoot = true;
+  }) {};
   monad-logger = haskellLib.dontCheck (self.callCabal2nix "monad-logger" (pkgs.fetchFromGitHub {
     owner = "snoyberg";
     repo = "monad-logger";
