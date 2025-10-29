@@ -18,22 +18,11 @@ let
   
   haskellNix = import haskellNixSrc {};
   
-  # Import IOHK Nix for crypto libraries (libsodium-vrf, libblst)
-  iohkNixSrc = builtins.fetchTarball {
-    url = "https://github.com/input-output-hk/iohk-nix/archive/refs/heads/master.tar.gz";
-  };
-  
-  iohkNix = import iohkNixSrc {};
-  
-  # Use nixpkgs with haskell.nix and IOHK overlays
+  # Use nixpkgs with haskell.nix overlays
+  # Note: IOHK crypto overlays (libsodium-vrf, libblst) are now handled by haskell.nix
   nixpkgsArgs = haskellNix.nixpkgsArgs // {
     inherit system;
-    overlays = haskellNix.nixpkgsArgs.overlays ++ [
-      # IOHK crypto libraries overlay (libsodium-vrf, libblst)
-      iohkNix.overlays.crypto
-      # pkg-config mappings for crypto libraries
-      iohkNix.overlays.haskell-nix-crypto
-    ];
+    overlays = haskellNix.nixpkgsArgs.overlays;
   };
   
   pkgs = import haskellNix.sources.nixpkgs nixpkgsArgs;
@@ -98,9 +87,10 @@ let
         # Apply package-specific modules/overlays
         modules = [
           # Apply Cardano package overlays from cardano-overlays/
-          {
-            packages = cardanoOverlays.packageOverrides or {};
-          }
+          # The 'combined' overlay contains all Cardano package configurations
+          ({config, ...}: {
+            packages = lib.mapAttrs (_: v: {}) (cardanoOverlays.combined {} {});
+          })
           
           # Apply user-provided package list
           {
