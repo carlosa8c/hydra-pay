@@ -10,6 +10,8 @@ result.tar
 build-docker.nix
 build-in-docker.log
 *.log
+.docker-nix-store/
+.docker-nix-cache/
 
 # Nix/direnv noise (if used)
 .direnv/

@@ -17,9 +17,14 @@ in self: super: {
   # Old libpq-0.4.1 is marked as broken in nixpkgs
   libpq = super.postgresql-libpq;
   
-  # Fix broken bytestring-trie: unmark as broken
-  # bytestring-trie-0.2.5.0 is marked as broken in nixpkgs but cardano-api needs it
-  bytestring-trie = haskellLib.markUnbroken super.bytestring-trie;
+  # Fix broken bytestring-trie: use newer version that supports base-4.14+
+  # bytestring-trie-0.2.5.0 in nixpkgs is outdated and marked broken
+  # Version 0.2.7.6 supports base >=4.9 && <4.22 (works with GHC 8.10.7)
+  # Using fetchzip because it's too new for all-cabal-hashes (released Feb 2025)
+  bytestring-trie = self.callCabal2nix "bytestring-trie" (pkgs.fetchzip {
+    url = "https://hackage.haskell.org/package/bytestring-trie-0.2.7.6/bytestring-trie-0.2.7.6.tar.gz";
+    sha256 = "0wdf718dkf97mgdf37rihy4hgpy07ifqzsnxf83bbv2smisafmj6";
+  }) {};
   
   # Fix broken latex-svg-image: unmark as broken
   # latex-svg-image-0.2 is marked as broken in nixpkgs but needed for build
@@ -311,19 +316,18 @@ in self: super: {
   }) {});
   # crypton-connection 0.4.1 (from Hackage)
   crypton-connection = haskellLib.dontCheck (self.callHackage "crypton-connection" "0.4.1" {});
-  # data-elevator 0.2 (from GitHub, NOT in all-cabal-hashes despite .cabal file being accessible)
-  data-elevator = haskellLib.dontCheck (self.callCabal2nix "data-elevator" (pkgs.fetchFromGitHub {
-    owner = "sgraf812";
-    repo = "data-elevator";
-    rev = "6d044fa3167d244043454ae0df4272ad451a2e1d";  # tag v0.2
-    sha256 = "13ska0x40pmq5rhd50a3r93azh65i3lz9frjn90qrpr4k2nr7cvj";
-  }) {});
-  # cardano-git-rev 0.2.2.1 (from CHaP, in cardano-base monorepo)
+  # data-elevator: NOT NEEDED with GHC 8.10.7 (only required when impl(ghc >=9.4) in lsm-tree)
+  # All versions require base >=4.16 (GHC 9.2+), but lsm-tree's conditional build-depends
+  # excludes it when using older GHC versions.
+  data-elevator = null;
+  # cardano-git-rev 0.1.3.0 (from CHaP, in cardano-node monorepo)
+  # Using older version because 0.2.2.1 requires base >=4.18 (GHC 9.6+)
+  # Version 0.1.3.0 supports base >=4.14 which works with GHC 8.10.7
   cardano-git-rev = haskellLib.dontCheck (self.callCabal2nixWithOptions "cardano-git-rev" (pkgs.fetchFromGitHub {
-    owner = "IntersectMBO";
-    repo = "cardano-base";
-    rev = "971708b0142f86507e8694351186551ac8753cf0";  # from CHaP cardano-git-rev/0.2.2.1
-    sha256 = "155npmfbil8ybvpg9bshsv2fsiwkgkkwy3ich44d4cc97a4fdhnv";
+    owner = "input-output-hk";
+    repo = "cardano-node";
+    rev = "9a0898636a4ea13f720dc3c6c8789b27beeb37c9";  # from CHaP cardano-git-rev/0.1.3.0
+    sha256 = "06qklfk8akqpb62iciafc27r5b3frj806bnkz8mg5vrnfr29vrv8";
   }) "--subpath cardano-git-rev" {});
   # kes-agent 0.2.0.1 (from CHaP, in kes-agent monorepo)
   kes-agent = haskellLib.dontCheck (self.callCabal2nixWithOptions "kes-agent" (pkgs.fetchFromGitHub {

@@ -10,6 +10,12 @@
 - **ALWAYS check all-cabal-hashes FIRST** - before trying callHackage, verify package exists there
 - When fetching from GitHub directly, use nix-prefetch-url to get correct SHA256 hashes
 - Prioritize stability over bleeding edge - use released tags when available
+- **NEVER use doJailbreak** - always find a compatible version instead of jailbreaking version bounds
+  - When a package has incompatible base/binary/etc constraints, search for older compatible versions
+  - Check Hackage version history or CHaP (_sources directory) for versions that work with GHC 8.10.7 (base-4.14)
+  - Use fetch_webpage or curl to check .cabal files for version bounds before updating
+  - Example: cardano-git-rev 0.2.2.1 needs base >=4.18, but 0.1.3.0 works with base >=4.14
+  - Jailbreaking can cause runtime issues and is harder to maintain
 
 ### Goal 2: Get Build Working with Latest Packages
 - Ensure `./build-in-docker.sh` succeeds consistently
