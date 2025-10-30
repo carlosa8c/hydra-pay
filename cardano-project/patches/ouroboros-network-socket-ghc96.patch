@@ -1,0 +1,23 @@
+--- a/src/Ouroboros/Network/Socket.hs
++++ b/src/Ouroboros/Network/Socket.hs
+@@ -76,7 +76,7 @@ import Data.Word (Word16)
+ 
+ import Network.Socket (SockAddr, Socket, StructLinger (..))
+ import Network.Socket qualified as Socket
+ 
+-import Control.Tracer
++import Control.Tracer (Tracer, contramap, traceWith)
+ 
+ import Network.Mux qualified as Mx
+ 
+@@ -115,6 +115,10 @@ import Ouroboros.Network.Mux
+ import Ouroboros.Network.Server.RateLimiting
+ import Ouroboros.Network.Snocket
+ 
++-- | Helper for GHC 9.6: showTracing removed from contra-tracer 0.2.0
++showTracing :: (Applicative m, Show a) => Tracer m String -> Tracer m a
++showTracing = contramap show
++
+ -- | We place an upper limit of `maxAcceptedConnectionsDelay` on the
+ -- `delay` method.  This means that when the server is overloaded, we will
+ -- at worst be serving at rate @1 / maxAcceptedConnectionsDelay@ rather than

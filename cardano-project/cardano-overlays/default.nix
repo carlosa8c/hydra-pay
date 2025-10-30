@@ -1,7 +1,9 @@
-{ haskellLib, pkgs, lib }:
+{ haskellLib, pkgs, lib, deps, cardanoPackageDeps, topLevelDeps }:
 
 let
-  deps = pkgs.thunkSet ./dep;
+  # deps is now passed from parent (cardano-project/dep/)
+  # cardanoPackageDeps is passed from parent (cardano-overlays/cardano-packages/dep/)
+  # topLevelDeps is passed from parent (workspace root /dep/)
 in rec {
 
   optionalExtension = cond: overlay: if cond then overlay else _: _: {};
@@ -21,7 +23,7 @@ in rec {
   ] self super;
 
   cardanoPackages = import ./cardano-packages {
-    inherit haskellLib pkgs lib;
+    inherit haskellLib pkgs lib deps cardanoPackageDeps topLevelDeps;
   };
 
   cardanoWalletCoinSelection = import ./cardano-wallet-coin-selection {

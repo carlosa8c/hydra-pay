@@ -41,21 +41,17 @@ let
       pd = cardanoProject.cardanoProjectDef args;
     in
     pkgs.lib.recursiveUpdate pd {
-      packages = {
-        # Our main packages
-        backend = ./backend;
-        common = ./common;
-        hydra-pay = ./hydra-pay;
-        hydra-pay-core = ./hydra-pay-core;
-        
-        # Dependencies from thunks
-        cardano-transaction = pkgs.hackGet ./dep/cardano-transaction-builder;
-        bytestring-aeson-orphans = pkgs.hackGet ./dep/bytestring-aeson-orphans;
-      };
-
+      # NOTE: Don't define 'packages' here! 
+      # haskell.nix discovers packages from cabal.project automatically.
+      # Defining 'packages' here causes NixOS module system to try importing them as modules.
+      
       overrides = self: super: pd.overrides self super // {
         # Don't run tests for plutus-tx (slow, not needed for our use case)
         plutus-tx = haskellLib.dontCheck super.plutus-tx;
+
+        # quickcheck-instances is DEPRECATED - all instances now in QuickCheck 2.17.1.0 (bundled with GHC 9.6.7)
+        # Set to null to avoid duplicate instance errors
+        quickcheck-instances = null;
 
         # Package-specific overrides
         bytestring-aeson-orphans = haskellLib.doJailbreak super.bytestring-aeson-orphans;
@@ -94,12 +90,12 @@ let
     });
 in
 # Export the built packages and dependencies
-# Note: Using ghc attribute (not ghcjs) since we only build native backend
+# Note: With haskell.nix, packages are exposed as .components.exes.executable-name
 haskellPackages // {
-  # Expose main executables
-  backend = haskellPackages.ghc.backend;
-  hydra-pay = haskellPackages.ghc.hydra-pay;
-  hydra-pay-core = haskellPackages.ghc.hydra-pay-core;
+  # Expose main executables from haskell.nix project
+  backend = haskellPackages.backend.components.exes.backend or haskellPackages.backend;
+  hydra-pay = haskellPackages.hydra-pay.components.exes.hydra-pay or haskellPackages.hydra-pay;
+  hydra-pay-core = haskellPackages.hydra-pay-core or null;  # Library package, no exe
   
   # Expose external dependencies for reference
   inherit cardano-node hydra deps;

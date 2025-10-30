@@ -1,0 +1,15 @@
+--- a/src/Ouroboros/Network/Socket.hs
++++ b/src/Ouroboros/Network/Socket.hs
+@@ -143,8 +143,8 @@ nullNetworkConnectTracers = NetworkConnectTracers {
+-      nctMuxTracer       = nullTracer,
+-      nctHandshakeTracer = nullTracer
++      nctMuxTracer       = mempty,
++      nctHandshakeTracer = mempty
+     }
+ 
+@@ -147,8 +147,8 @@ debuggingNetworkConnectTracers = NetworkConnectTracers {
+-      nctMuxTracer       = showTracing stdoutTracer,
+-      nctHandshakeTracer = showTracing stdoutTracer
++      nctMuxTracer       = contramap show (tracerToHandle stdout),
++      nctHandshakeTracer = contramap show (tracerToHandle stdout)
+     }

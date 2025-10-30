@@ -15,7 +15,7 @@ if [ -z "${VERSION:-}" ]; then
 fi
 PUSH_LATEST=${PUSH_LATEST:-1}
 NIX_BUILD_CORES=${NIX_BUILD_CORES:-0}
-NIX_MAX_JOBS=${NIX_MAX_JOBS:-auto}
+NIX_MAX_JOBS=${NIX_MAX_JOBS:-12}
 TARGET_ATTR=${TARGET_ATTR:-}
 NIX_EXTRA_FLAGS=${NIX_EXTRA_FLAGS:-}
 
@@ -98,7 +98,7 @@ if [ -z "$TARGET_ATTR" ]; then
 let
   system = builtins.currentSystem;
   self = import ./. { inherit system; };
-  nixpkgs = self.obelisk.nixpkgs;
+  nixpkgs = import <nixpkgs> { inherit system; };  # Use nixpkgs directly since Obelisk is removed
   lib = nixpkgs.lib;  # avoid stdenv.lib deprecation warning
   configs = nixpkgs.stdenv.mkDerivation {
     name = "configs";
@@ -139,7 +139,7 @@ docker run --rm \
   ${DOCKER_PLATFORM:+--platform ${DOCKER_PLATFORM}} \
   ${DOCKER_PRIVILEGED:-} \
   --security-opt seccomp=unconfined \
-  -m 24g \
+  -m 8g \
   -v "$PWD:/work" \
   -v "$NIX_VOLUME:/nix" \
   -v "$NIX_CACHE_VOLUME:/root/.cache/nix" \

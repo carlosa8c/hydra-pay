@@ -1,27 +1,84 @@
 # Hydra Pay Build Context for GitHub Copilot
 
+## ⚠️ MIGRATION IN PROGRESS: reflex-platform → haskell.nix
+
+**Current Status**: Actively migrating from reflex-platform to haskell.nix
+- **From**: GHC 8.10.7, reflex-platform, Obelisk framework
+- **To**: GHC 9.6.7, haskell.nix, CHaP (Cardano Haskell Packages)
+- **Reason**: Obelisk no longer maintained, need modern GHC for cabal-version 3.4+ support
+
+### Migration Progress
+- ✅ Removed Obelisk from Haskell code (Backend.hs, routing)
+- ✅ Updated cardano-project/default.nix to use haskell.nix
+- ✅ Set compiler to GHC 9.6.7 (ghc967)
+- ✅ Added CHaP repository for Cardano packages
+- ✅ Updated cardano-node to 10.4.1, hydra to 1.1.0
+- ✅ **RESOLVED**: strict-stm dependency incompatibility
+  - CHaP was providing io-classes 1.8.0.1 with new InspectMonadSTM API
+  - Solution: Override via `cabal.project` source-repository-package (takes precedence over CHaP)
+  - Now using io-sim commit b61e23a (Nov 8, 2023) with io-classes 1.3.0.0
+- ✅ Defined custom thunkSet function (replaces reflex-platform's thunkSet)
+- 🔄 Build successfully compiling packages (first time past dependency resolution!)
+- ⏳ Waiting for build completion or GHC 9.6.7 compilation errors
+
+### Critical Lesson: Overriding CHaP Packages
+**The ONLY way to override CHaP packages in haskell.nix:**
+
+Use `cabal.project` source-repository-package entries. This is read by haskell.nix and takes precedence over CHaP.
+
+```haskell
+-- In cabal.project:
+source-repository-package
+  type: git
+  location: https://github.com/input-output-hk/io-sim
+  tag: b61e23a219c5ae113ff9a43f89b4451c8fe2f353
+  --sha256: 1BwQ7dfXCYMg/Pl5Vvl1L7kXlPfWNl9dRZiLZru3UU0=
+  subdir:
+    io-sim
+    io-classes
+    strict-stm
+    strict-mvar
+    si-timers
+```
+
+**DO NOT** use `packages.*.src` in haskell.nix modules - this conflicts with cabal.project and causes errors.
+
+**DO** use modules for configuration only:
+```nix
+modules = [
+  {
+    # Disable tests
+    packages.io-classes.doCheck = false;
+    packages.strict-stm.doCheck = false;
+  }
+]
+```
+
+### Known Issues
+1. ~~**haskell.nix Package Overrides**: CHaP packages take precedence over local thunk definitions~~ ✅ SOLVED
+   - ~~Solution: Use `packages.*.src` overrides in haskell.nix modules~~ **WRONG APPROACH**
+   - **CORRECT**: Use cabal.project source-repository-package entries
+2. ✅ **thunkSet missing**: reflex-platform's thunkSet not available in haskell.nix
+   - Solution: Define custom thunkSet using fetchFromGitHub (implemented)
+3. ✅ **Hash mismatches**: SHA256 hashes need recalculation when updating thunks
+   - Use: `nix-prefetch-url --unpack https://github.com/...`
+   - Note: Use base64 format (sha256-...), not nix32 format
+
 ## Project Goals
 
-### Goal 1: Update Packages and Dependencies
+### Goal 1: Complete Migration to haskell.nix
+- Get build working with GHC 9.6.7 and haskell.nix
+- Properly override CHaP packages with local thunks when needed
+- Fix io-sim/strict-stm version compatibility (use Nov 2023 version with old API)
+- Support cabal-version 3.4+ packages (lsm-tree, bloomfilter-blocked, etc.)
+
+### Goal 2: Update Packages and Dependencies
 - Keep all Haskell packages and dependencies updated to their latest viable versions
-- Use Hackage, GitHub releases, and all-cabal-hashes to verify actual available versions
+- Use CHaP, Hackage, and GitHub to source packages
 - **NEVER guess package versions** - always check online first using fetch_webpage
 - **NEVER guess package paths** - always verify thunk paths exist before adding packages
-- **ALWAYS check all-cabal-hashes FIRST** - before trying callHackage, verify package exists there
 - When fetching from GitHub directly, use nix-prefetch-url to get correct SHA256 hashes
 - Prioritize stability over bleeding edge - use released tags when available
-- **NEVER use doJailbreak** - always find a compatible version instead of jailbreaking version bounds
-  - When a package has incompatible base/binary/etc constraints, search for older compatible versions
-  - Check Hackage version history or CHaP (_sources directory) for versions that work with GHC 8.10.7 (base-4.14)
-  - Use fetch_webpage or curl to check .cabal files for version bounds before updating
-  - Example: cardano-git-rev 0.2.2.1 needs base >=4.18, but 0.1.3.0 works with base >=4.14
-  - Jailbreaking can cause runtime issues and is harder to maintain
-
-### Goal 2: Get Build Working with Latest Packages
-- Ensure `./build-in-docker.sh` succeeds consistently
-- Build must work across macOS, Linux, and CI environments
-- Fix dependency resolution issues as they arise
-- Update Nix overlays and package definitions as needed
 
 ## Current Build Environment
 
@@ -45,50 +102,178 @@
 
 ### Key Files
 - **Build orchestration**: `build-in-docker.sh`, `.ci/inner-build.sh`
-- **Main Nix config**: `cardano-project/default.nix`
+- **Main Nix config**: `cardano-project/default.nix` (uses haskell.nix, GHC 9.6.7)
 - **Cardano packages overlay**: `cardano-project/cardano-overlays/cardano-packages/default.nix`
-- **Dependency pins**: Multiple `thunk.nix` files throughout project
+- **Dependency pins**: Multiple `github.json` files in thunk directories
 - **Build log**: `build-in-docker.log` (check with `tail -f` or `strings` for binary content)
 
-## Current Issue: Cabal Version Compatibility
+## haskell.nix Package Management
 
-### GHC 8.10.7 Limitations
-- **GHC 8.10.7 ships with Cabal library 3.2.1.0**
-- **Cabal 3.2 can ONLY parse `.cabal` files with `cabal-version:` up to 3.0**
-- **Packages requiring `cabal-version: 3.4` CANNOT be built with GHC 8.10.7**
-- This is a fundamental limitation - even pre-generated .nix files won't help because the .cabal file must still be parsed during build
+### How haskell.nix Works (Different from reflex-platform)
+- **CHaP (Cardano Haskell Packages)**: Primary repository for Cardano packages
+  - Configured via `inputMap` in haskell.nix project
+  - Takes precedence over Hackage for Cardano packages
+  - URL: https://intersectmbo.github.io/cardano-haskell-packages
+- **Package Resolution Order**: cabal.project source-repository-package → CHaP → Hackage
+- **Key Insight**: haskell.nix reads `cabal.project` and source-repository-package entries take precedence over CHaP
+- **Solution for overrides**: Use `cabal.project` source-repository-package entries (NOT haskell.nix modules)
 
-### Problem
-Many modern packages (2024+) use `cabal-version: 3.4` which requires Cabal 3.4+ to parse.
-GHC 8.10.7's Cabal 3.2 cannot read these files at all.
+### Overriding CHaP Packages: The Correct Way
+**Use `cabal.project` source-repository-package entries:**
 
-### Solution
-**Set incompatible packages to `null` with explanatory comments:**
-- Document that package requires cabal-version > 3.0
-- Note that it's incompatible with GHC 8.10.7 (Cabal 3.2)
-- Add TODO comment for when upgrading to GHC 9.2+ (which includes Cabal 3.6+)
-
-### Proactive cabal-version Checking
-**Always scan for problematic packages BEFORE building:**
-1. Check each thunk's `github.json` to get commit hash and repo
-2. Fetch `.cabal` file from GitHub at that commit using `fetch_webpage`
-3. Look for `cabal-version:` field - if > 3.0, it's INCOMPATIBLE with GHC 8.10.7
-4. Set package to `null` immediately rather than attempting build
-5. This saves hours of iterative debugging!
-
-### Error Pattern
-```
-Setup: Failed parsing "./package.cabal"
-*** cannot parse "/nix/store/.../package.cabal":
-Unsupported cabal-version 3.4. See https://github.com/haskell/cabal/issues/4899.
+```haskell
+-- In cabal.project at workspace root:
+source-repository-package
+  type: git
+  location: https://github.com/input-output-hk/io-sim
+  tag: b61e23a219c5ae113ff9a43f89b4451c8fe2f353
+  --sha256: 1BwQ7dfXCYMg/Pl5Vvl1L7kXlPfWNl9dRZiLZru3UU0=
+  subdir:
+    io-sim
+    io-classes
+    strict-stm
+    strict-mvar
+    si-timers
 ```
 
-### Known Incompatible Packages (cabal-version > 3.0)
-- **lsm-tree**: cabal-version 3.4 (all versions since Jan 2025)
-- **bloomfilter-blocked**: cabal-version 3.4
-- **cardano-lmdb**: cabal-version 3.0 but uses internal libraries incompatible with Cabal 3.2
-- **data-elevator**: requires base >=4.16 (GHC 9.2+)
-- **non-integral**: requires base >=4.18 (GHC 9.6+) since May 2025
+**Why this works:**
+- haskell.nix reads cabal.project during plan generation
+- source-repository-package entries are resolved BEFORE CHaP
+- This is the standard Cabal way to override package sources
+- No conflicts with haskell.nix internals
+
+### What NOT to Do
+**DO NOT use `packages.*.src` in haskell.nix modules:**
+
+```nix
+# ❌ WRONG - causes conflicts with cabal.project
+modules = [
+  {
+    packages.strict-stm.src = pkgs.haskell-nix.haskellLib.cleanGit {
+      name = "strict-stm";
+      src = cardanoPackageDeps.io-sim + "/strict-stm";
+    };
+  }
+]
+```
+
+This conflicts with cabal.project and causes "conflicting definition values" errors.
+
+### What to Use haskell.nix Modules For
+**DO use modules for package configuration (not sources):**
+
+```nix
+# ✅ CORRECT - configuration only
+modules = [
+  {
+    # Disable tests
+    packages.io-classes.doCheck = false;
+    packages.strict-stm.doCheck = false;
+    packages.strict-mvar.doCheck = false;
+    
+    # Other configuration
+    packages.some-package.flags.some-flag = true;
+  }
+]
+```
+
+### Loading Git Thunks (Custom thunkSet)
+reflex-platform's `thunkSet` is not available. Define manually:
+```nix
+thunkSet = dir: lib.mapAttrs (name: _:
+  let thunkData = builtins.fromJSON (builtins.readFile (dir + "/${name}/github.json"));
+  in pkgs.fetchFromGitHub {
+    owner = thunkData.owner or (throw "thunk ${name} missing owner");
+    repo = thunkData.repo or (throw "thunk ${name} missing repo");
+    rev = thunkData.rev;
+    sha256 = thunkData.sha256;
+  }
+) (builtins.readDir dir);
+```
+
+## Current Issue: strict-stm Dependency Incompatibility
+
+### GHC 9.6.7 Migration Context
+- **GHC 9.6.7 ships with Cabal 3.10+** - CAN parse cabal-version 3.4
+- **This is why we're upgrading** - to support modern Cardano packages
+- **Old limitation (GHC 8.10.7)**: Could only parse cabal-version up to 3.0
+
+### The strict-stm Problem
+
+### The strict-stm Problem
+- **InspectMonad → InspectMonadSTM API rename** in io-classes (May 7, 2024, commit 5863917)
+- **CHaP provides**: strict-stm 1.5.0.0 from Hackage (uses OLD InspectMonad API)
+- **But CHaP also has**: io-classes 1.8.0.1 (has NEW InspectMonadSTM API)
+- **Result**: Incompatibility - strict-stm 1.5.0.0 can't compile with io-classes 1.8.0.1
+
+### Solution: Use io-sim thunk from November 2023
+- **Commit**: b61e23a219c5ae113ff9a43f89b4451c8fe2f353 (Nov 8, 2023)
+- **Version**: strict-stm 1.3.0.0, io-classes 1.3.x
+- **Why**: This version has standalone strict-stm/strict-mvar packages with InspectMonad API
+- **Location**: `cardano-project/cardano-overlays/cardano-packages/dep/io-sim/`
+- **Override method**: Use haskell.nix modules to force src from thunk
+
+### Migration Steps Needed
+1. ✅ Define thunkSet function (replaces reflex-platform thunkSet)
+2. 🚧 Fix SHA256 hash in io-sim thunk's github.json
+3. 🚧 Configure haskell.nix modules to override strict-stm/strict-mvar/io-classes/io-sim
+4. ⏳ Fix remaining GHC 9.6.7 compilation errors
+
+## Package Update Workflow (haskell.nix Context)
+
+### Package Source Priority
+1. **CHaP** (Cardano packages) - checked first for Cardano ecosystem
+2. **Hackage** - standard Haskell packages
+3. **Local thunks** - must be explicitly configured via haskell.nix modules
+
+### When to Override with Local Thunks
+- Package has API incompatibility with CHaP version
+- Need specific commit not published to CHaP/Hackage
+- Testing unreleased features
+- Working around CHaP sync lag
+
+### Package Update Decision Tree (GHC 9.6.7)
+1. **Check CHaP first** for Cardano packages
+   - Browse: https://github.com/IntersectMBO/cardano-haskell-packages
+   - Or: `nix-build` will try CHaP automatically
+2. **If CHaP version incompatible**: Override with local thunk
+3. **For non-Cardano packages**: Use Hackage (via haskell.nix)
+4. **If not in Hackage**: Fetch from GitHub
+
+### Known Packages Requiring Thunk Overrides
+- **io-classes**: Use thunk (Nov 2023) for InspectMonad compatibility
+- **io-sim**: Use thunk (Nov 2023) for InspectMonad compatibility  
+- **strict-stm**: Use thunk (Nov 2023) for InspectMonad compatibility
+- **strict-mvar**: Use thunk (Nov 2023) for InspectMonad compatibility
+
+### Proactive cabal-version Checking (GHC 9.6.7)
+
+### Proactive cabal-version Checking (GHC 9.6.7)
+**GHC 9.6.7 supports cabal-version up to 3.10** (ships with Cabal 3.10)
+- Most modern packages (cabal-version 3.4) are now compatible
+- Still check for very new cabal-version requirements (> 3.10)
+- Old restriction (GHC 8.10.7 / Cabal 3.2) no longer applies
+
+**For packages requiring cabal-version > 3.10:**
+1. Check if newer GHC needed (9.8+, 9.10+)
+2. Set to `null` with explanation if incompatible
+3. Document upgrade path
+
+### Error Patterns
+
+#### Hash Mismatch in Thunk
+```
+error: hash mismatch in fixed-output derivation '/nix/store/.../source.drv':
+  specified: sha256-...
+       got: sha256-...
+```
+**Fix**: Update `sha256` in `github.json` using nix-prefetch-url
+
+#### CHaP Package Override Not Working
+```
+building strict-stm-1.5.0.0 (from CHaP/Hackage instead of thunk)
+```
+**Fix**: Add package.*.src override in haskell.nix modules
 
 ## Package Update Workflow
 
@@ -120,106 +305,54 @@ Unsupported cabal-version 3.4. See https://github.com/haskell/cabal/issues/4899.
 - Very recent package versions
 - Packages with cabal-version >= 3.4 (if cabal2nix doesn't support it)
 
-### Step 1: Check all-cabal-hashes FIRST
+### Step 1: Check Package Source (haskell.nix)
 ```
-1. ALWAYS check all-cabal-hashes BEFORE trying callHackage or GitHub
-2. Use fetch_webpage: https://raw.githubusercontent.com/commercialhaskell/all-cabal-hashes/hackage/{package}/{version}/{package}.cabal
-3. If 404, package is NOT in all-cabal-hashes - skip to Step 3 (GitHub)
-4. If found, check cabal-version requirement (if > 3.0, INCOMPATIBLE with GHC 8.10.7)
-5. Proceed to Step 2 if package exists in all-cabal-hashes
-```
-
-### Step 2: Verify Version Exists on Hackage
-```
-1. Use fetch_webpage to check Hackage: https://hackage.haskell.org/package/{package}
-2. Note all available versions and their release dates
-3. Check cabal-version requirement (if > 3.0, INCOMPATIBLE with GHC 8.10.7)
-4. IMPORTANT: Hackage existence doesn't guarantee all-cabal-hashes availability!
+1. For Cardano packages: Check CHaP first
+   - Browse: https://github.com/IntersectMBO/cardano-haskell-packages
+   - CHaP syncs from Hackage + Cardano repos
+2. For general Haskell packages: Use Hackage
+   - URL: https://hackage.haskell.org/package/{package}
+3. Check cabal-version: Must be ≤ 3.10 for GHC 9.6.7
+4. If not available or incompatible: Use GitHub thunk
 ```
 
-### Step 3: Try callHackage First (Only if in all-cabal-hashes)
+### Step 2: Try Building with Default Resolution
 ```
-1. Add package with callHackage using verified version from all-cabal-hashes
-2. Start build and watch for "Not found in archive" errors (shouldn't happen if Step 1 passed)
-3. If it works: keep callHackage (stable, well-tested approach)
-4. If it fails: something is wrong, re-check all-cabal-hashes
-```
-
-### Step 4: Get Package from GitHub (Only if NOT in all-cabal-hashes)
-```
-ONLY use this if Step 1 showed package is NOT in all-cabal-hashes (404 error)
-
-1. Check releases/tags: https://github.com/{owner}/{repo}/tags
-2. Find tag matching desired version (e.g., "v0.1.1" or "0.1")
-3. Get commit hash from tag page
-4. **Check if monorepo**: Use fetch_webpage to browse repo at commit hash
-   - Look for multiple subdirectories with .cabal files
-   - Example: https://github.com/{owner}/{repo}/tree/{commit-hash}
-   - If package.cabal is in root: single package
-   - If package.cabal is in subdirectory: monorepo (need --subpath)
-5. Fetch SHA256 hash:
-   docker run --rm nixos/nix:latest nix-prefetch-url --unpack https://github.com/{owner}/{repo}/archive/refs/tags/{tag}.tar.gz
-6. Update package definition to use fetchFromGitHub (see Step 5)
+1. Let haskell.nix resolve from CHaP/Hackage first
+2. Run nix-build and check for errors
+3. If version conflict or API incompatibility: Override with thunk
 ```
 
-### Step 5: Update Package Definition
-```nix
-# If callHackage worked (Step 1 found package in all-cabal-hashes, Step 3 succeeded):
-package = haskellLib.dontCheck (self.callHackage "package" "version" {});
+### Step 3: Override with Local Thunk (if needed)
+### Step 3: Override with Local Thunk (if needed)
+```
+1. Create/update thunk directory with github.json:
+   {
+     "owner": "input-output-hk",
+     "repo": "io-sim",
+     "rev": "b61e23a219c5ae113ff9a43f89b4451c8fe2f353",
+     "sha256": "1nb4f61f1bk7nwfgksaz3mf5kh0xadmjv7j2q0d69n85gvzsc87r"
+   }
 
-# If callHackage failed (Step 1 showed 404, using GitHub from Step 4):
-# IMPORTANT: Check if repository is a monorepo (has subdirectories with .cabal files)
-# If monorepo, use callCabal2nixWithOptions with --subpath:
-package = haskellLib.dontCheck (self.callCabal2nixWithOptions "package" (pkgs.fetchFromGitHub {
-  owner = "owner";
-  repo = "repo";
-  rev = "commit-hash-from-tag";  # use full commit hash, not tag name
-  sha256 = "actual-hash-from-nix-prefetch";
-}) "--subpath package-directory" {});
+2. Add override in cardano-project/default.nix modules:
+   {
+     packages.strict-stm.src = pkgs.haskell-nix.haskellLib.cleanGit {
+       name = "strict-stm";
+       src = cardanoPackageDeps.io-sim + "/strict-stm";
+     };
+     packages.strict-stm.doCheck = false;
+   }
 
-# If NOT a monorepo (single package in root):
-package = haskellLib.dontCheck (self.callCabal2nix "package" (pkgs.fetchFromGitHub {
-  owner = "owner";
-  repo = "repo";
-  rev = "commit-hash-from-tag";  # use full commit hash, not tag name
-  sha256 = "actual-hash-from-nix-prefetch";
-}) {});
-
-# If package doesn't exist anywhere:
-package = null;  # Explain why in comment
+3. For monorepo packages: Path must point to subdirectory with .cabal file
 ```
 
-### Known Monorepo Packages Requiring --subpath
-- **dependent-sum**: subdirectory `dependent-sum/`
-- **gargoyle**: subdirectories `gargoyle/`, `gargoyle-postgresql/`, `gargoyle-postgresql-nix/`, `gargoyle-postgresql-connect/`
-- **uuid**: subdirectory `uuid/`
-- **obelisk**: subdirectories `lib/backend/`, `lib/frontend/`, `lib/route/`, `lib/executable-config/lookup/`
-- **rhyolite**: subdirectories `beam/db/`, `beam/task/backend/`, `beam/task/types/`
-- **quickcheck-dynamic**: subdirectory `quickcheck-dynamic/` (input-output-hk/quickcheck-dynamic)
-- **blockio**: subdirectory `blockio/` (IntersectMBO/lsm-tree)
-- **lsm-tree**: subdirectory `lsm-tree/` (IntersectMBO/lsm-tree)
-- **bloomfilter-blocked**: subdirectory `bloomfilter-blocked/` (IntersectMBO/lsm-tree)
-- **cardano-git-rev**: subdirectory `cardano-git-rev/` (IntersectMBO/cardano-base)
-
-### Step 6 (cardano-ledger packages only): Verify Thunk Paths
-```
-For packages from deps.cardano-ledger thunk:
-1. Read thunk's github.json to get commit hash
-2. Use fetch_webpage to check GitHub: https://github.com/IntersectMBO/cardano-ledger/tree/{commit-hash}/libs
-3. Verify directory exists (e.g., /libs/cardano-ledger-core)
-4. If path doesn't exist, set package to null - don't guess!
+### Step 4: Get SHA256 Hash for Thunks
+```bash
+# Use nix-prefetch-url to get correct hash:
+nix-prefetch-url --unpack https://github.com/{owner}/{repo}/archive/{commit}.tar.gz
 ```
 
-### Step 6 (cardano-ledger packages only): Verify Thunk Paths
-```
-For packages from deps.cardano-ledger thunk:
-1. Read thunk's github.json to get commit hash
-2. Use fetch_webpage to check GitHub: https://github.com/IntersectMBO/cardano-ledger/tree/{commit-hash}/libs
-3. Verify directory exists (e.g., /libs/cardano-ledger-core)
-4. If path doesn't exist, set package to null - don't guess!
-```
-
-### Step 7: Test Build
+### Step 5: Test Build
 ```bash
 ./build-in-docker.sh > build-in-docker.log 2>&1 &
 # Wait for completion, then:
@@ -287,6 +420,31 @@ Located in cardano-ledger repo under `/eras/` and `/libs/`:
 
 ### Alternative (Not Currently Used)
 Interactive container with live editing - could speed up iteration but user wants to keep Docker workflow for future compatibility.
+
+## Patch Testing Workflow
+
+When creating local patches for Haskell packages, test patches directly against the source tarball to iterate faster than rebuilding the entire Nix environment.
+
+### Testing Patches Directly
+
+To test a patch without rebuilding the full project:
+
+1. Find the source tarball path from Nix store (from build error or `nix-store -qR` result)
+2. Extract and test the patch:
+
+```bash
+cd /tmp && tar -xzf /nix/store/{hash}-{package}-{version}.tar.gz && cd {package}-{version} && patch -p1 --dry-run < /path/to/patch/file
+```
+
+Example:
+```bash
+cd /tmp && tar -xzf /nix/store/7himsj4ycdizjsj8149x8vjms452byql-ouroboros-network-framework-0.18.0.2.tar.gz && cd ouroboros-network-framework-0.18.0.2 && patch -p1 --dry-run < /Users/carlos/hydra-pay/cardano-project/patches/ouroboros-network-snocket-ghc96.patch
+```
+
+3. If `--dry-run` succeeds, apply without `--dry-run` and test compilation
+4. Iterate on the patch file until it applies cleanly
+
+This approach allows rapid patch iteration without waiting for full Nix builds.
 
 ## Important Rules
 

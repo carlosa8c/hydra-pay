@@ -7,6 +7,7 @@ packages:
   hydra-pay-core/*.cabal
   backend/*.cabal
   common/*.cabal
+  quickcheck-instances-dummy/
 
 -- Source repositories for dependencies from thunks
 -- These provide packages not available in Hackage/CHaP
@@ -14,36 +15,81 @@ packages:
 -- Rhyolite framework (beam database support)
 source-repository-package
   type: git
-  location: https://github.com/obsidiansystems/rhyolite
+  location: https://github.com/obsidiansystems/rhyolite.git
   tag: 8a10a67835c80a4a838e5ddd6b69451a77998c9b
+  --sha256: 1dp51nkfgb0cvd90nfa5k7xm6q0jjfji6vd8q8mydwa9s2vm6l28
   subdir:
     beam/db
+    beam/orphans
     beam/task/backend
     beam/task/types
+    psql-extras/psql-serializable
+    psql-extras/psql-simple-beam
+    psql-extras/psql-simple-class
 
 -- Reflex GADT API
 source-repository-package
   type: git
   location: https://github.com/reflex-frp/reflex-gadt-api
   tag: c5c84a5878e64eb91f919bfc0bbfa863d078302d
+  --sha256: 0mqxdv45b0qq6p5ji2z9h93354gd546d9b1z429jn134yvzg78vc
 
 -- Vessel (resource management)
 source-repository-package
   type: git
   location: https://github.com/obsidiansystems/vessel
-  tag: ea1db35437ef6c5c9d1e7f12378e0e2f1e96e941
+  tag: 03b1465abeb2dea16d32feb0963f11d0ed00f2f8
+  --sha256: 18vyh4ds2mng9lmn435dpbf9rj3fh9z1rimk4f2s3war9j4j5wnq
 
 -- Bytestring Aeson Orphans
 source-repository-package
   type: git
   location: https://github.com/obsidiansystems/bytestring-aeson-orphans
-  tag: 32c0aef91e06b47f5bd5028ea3f6b8c45bdfa0e3
+  tag: 4d3c8d2344af18a0e486b07d574e41ad7e24a10c
+  --sha256: 17dhl97qsadn37pmvw5z9zjzwy750yis3wr88zqb1g4wfb95jv4h
 
 -- Reflex (FRP framework)
 source-repository-package
   type: git
   location: https://github.com/reflex-frp/reflex
-  tag: ed566db6916b7a8f19e02ffac0f4e99ad48efe88
+  tag: a4d179322445d434c95018d8faf14a4dfb9a4f95
+  --sha256: 03mb21rgzvx8y5jirsnbx4y7g24hdfz075blbz50qb2j1ih5xqd2
+
+-- Cardano Transaction Builder
+source-repository-package
+  type: git
+  location: https://github.com/obsidiansystems/cardano-transaction-builder
+  tag: c7a0ebda86bf6a148adf58dfe29a28e66506535b
+  --sha256: 0kv4xpqjjj5j0w59nzf9sy7d0iwj5900aslkgmlflcc6js4bspyn
+
+-- io-sim monorepo packages (commit a22dced - May 17, 2024)
+-- Using version 1.5.0.0 which still has InspectMonad API (before rename to InspectMonadSTM)
+-- This is compatible with typed-protocols-cborg 0.3.0.0 which requires io-classes ^>=1.5
+-- This overrides CHaP's io-classes 1.8.0.1 which has InspectMonadSTM API (breaking change from May 7, 2024)
+source-repository-package
+  type: git
+  location: https://github.com/input-output-hk/io-sim
+  tag: a22dced7d012d10227ab0fe370889665c064caf9
+  --sha256: 1sv5z8288031mdwlvm0v71yv3avw5zdg8bswj5y5idzqk12c9h2k
+  subdir:
+    io-sim
+    io-classes
+    strict-stm
+    strict-mvar
+    si-timers
+
+-- typed-protocols monorepo packages (commit d127d3e - Sept 26, 2024)
+-- Version 0.3.0.0 for both typed-protocols and typed-protocols-cborg
+-- These are compatible with io-sim packages above (both use old InspectMonad API)
+-- This overrides CHaP's typed-protocols-cborg-0.1.0.4 which expects newer API
+source-repository-package
+  type: git
+  location: https://github.com/input-output-hk/typed-protocols
+  tag: d127d3ebd1850b7d1aa6eb75c0b040b1f94d0e24
+  --sha256: 0drd4xkvn2jjwmj00pdj62y6fgg8sag3vjpgz6yqppbry8dcj8c0
+  subdir:
+    typed-protocols
+    typed-protocols-cborg
 
 -- CHaP (Cardano Haskell Packages) repository
 -- This is where modern Cardano packages are published
@@ -64,8 +110,25 @@ index-state:
 write-ghc-environment-files: never
 
 -- Allow newer dependencies (GHC 9.6.7 ecosystem)
-allow-newer: all
+-- Allow packages to work without quickcheck-instances since QuickCheck 2.17.1.0 has all instances
+-- Work around quickcheck-instances deprecation
+-- QuickCheck 2.17.1.0 (GHC 9.6.7) has all the Arbitrary instances built-in
+-- Allow packages to relax their quickcheck-instances dependency
+allow-newer:
+  all
+  , *:quickcheck-instances
+
+-- quickcheck-instances is DEPRECATED and all instances are now built into QuickCheck 2.14.2+
+-- GHC 9.6.7 comes with QuickCheck 2.17.1.0 which has all instances, so we don't need quickcheck-instances
+-- Using allow-newer to let packages ignore quickcheck-instances dependency
+-- NOTE: Packages that depend on it will use QuickCheck instances directly
 
 -- Compile with parallelism
 package *
   ghc-options: -j8
+
+-- CRITICAL: Constrain microlens to < 0.5
+-- cardano-prelude-0.2.1.0 requires microlens < 0.5 because Field3/Field4/Field5
+-- were moved to microlens-th in 0.5.0
+-- But solver is picking 0.5.0.0 which breaks the build
+constraints: microlens < 0.5

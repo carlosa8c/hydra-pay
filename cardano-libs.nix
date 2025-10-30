@@ -272,7 +272,8 @@ self: super: {
   Win32-network = self.callCabal2nix "Win32-network" (Win32-network) {};
 
   QuickCheck = self.callHackage "QuickCheck" "2.14.2" {};
-  quickcheck-instances = self.callHackage "quickcheck-instances" "0.3.25.2" {};
+  # quickcheck-instances is DEPRECATED - all instances now in QuickCheck 2.17.1.0 (GHC 9.6.7)
+  quickcheck-instances = null;
   hedgehog = self.callHackage "hedgehog" "1.0.5" {};
   hedgehog-quickcheck = self.callHackage "hedgehog-quickcheck" "0.1.1" {};
   time-compat = haskellLib.dontCheck super.time-compat;

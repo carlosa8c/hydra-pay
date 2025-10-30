@@ -10,8 +10,8 @@ in self: super: {
     pkg-configDepends = [ pkgs.buildPackages.buildPackages.secp256k1 ];
   });
 
-  # add missing text-short dep
-  quickcheck-instances = haskellLib.addBuildDepend super.quickcheck-instances self.text-short;
+  # quickcheck-instances is DEPRECATED - all instances now in QuickCheck 2.17.1.0 (GHC 9.6.7)
+  quickcheck-instances = null;
 
   # this ensures same libsodium as ghc is used
   # cardano-crypto-class = haskellLib.overrideCabal (super.cardano-crypto-class.override { libsodium = libsodium-vrf; }) (drv: {

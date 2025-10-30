@@ -1,0 +1,18 @@
+--- a/src/Database/PostgreSQL/Simple/LargeObjects/Stream.hs
++++ b/src/Database/PostgreSQL/Simple/LargeObjects/Stream.hs
+@@ -3,6 +3,7 @@ module Database.PostgreSQL.Simple.LargeObjects.Stream where
+ 
+ import Control.Exception.Lifted (AssertionFailed (..), bracket, throwIO)
+ import Control.Monad.Loops (whileJust_)
++import Control.Monad (when, (<=<))
+ import Control.Monad.State as State
+ import qualified Data.ByteString as BS
+ import Data.ByteString.Builder (byteString)
+@@ -10,6 +11,7 @@ import qualified Data.ByteString.Builder as BS
+ import qualified Data.ByteString.Lazy as LBS
+ import Data.IORef (modifyIORef, newIORef, readIORef)
+ import Data.Semigroup ((<>))
++import Data.Function (fix)
+ import Database.PostgreSQL.Simple
+ import Database.PostgreSQL.Simple.LargeObjects (LoFd, Oid (..))
+ import qualified Database.PostgreSQL.Simple.LargeObjects as Sql

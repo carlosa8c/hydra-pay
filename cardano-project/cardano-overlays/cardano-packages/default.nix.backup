@@ -1,13 +1,11 @@
-{ haskellLib, lib, pkgs, deps, cardanoPackageDeps, topLevelDeps
+{ haskellLib, lib, pkgs
 , ...
 }:
 
 let
-  # Thunks are now passed from parent context:
-  # - deps: cardano-project/dep/ (contains haskell-hexstring, etc.)
-  # - cardanoPackageDeps: cardano-overlays/cardano-packages/dep/ (contains io-sim, typed-protocols, etc.)
-  # - topLevelDeps: workspace root /dep/ (contains aeson, cardano-node, hydra, etc.)
-  
+  deps = pkgs.thunkSet ./dep;
+  parentDeps = pkgs.thunkSet ../../dep;  # For packages in cardano-project/dep/
+  topLevelDeps = pkgs.thunkSet ../../../dep;  # For packages in top-level /dep/
   cardanoBaseSrc = pkgs.fetchFromGitHub {
     owner = "IntersectMBO";
     repo = "cardano-base";
@@ -232,16 +230,29 @@ in self: super: {
   cardano-addresses = haskellLib.doJailbreak (self.callCabal2nixWithOptions "cardano-addresses" (deps.cardano-addresses + "/core") "--no-hpack" {});
   cardano-addresses-cli = haskellLib.dontCheck (self.callCabal2nixWithOptions "cardano-addresses-cli" (deps.cardano-addresses + "/command-line") "--no-hpack" { cardano-address = null; });
 
-  # io-sim monorepo contains io-classes, io-sim, and standalone strict-stm/strict-mvar
-  # Using commit b61e23a (Nov 8, 2023) - strict-stm 1.3.0.0 / strict-mvar 1.3.0.0
-  # This version has standalone packages with InspectMonad API (before rename to InspectMonadSTM)
-  io-classes = haskellLib.dontCheck (self.callCabal2nixWithOptions "io-classes" (deps.io-sim + "/io-classes") "" {});
-  io-sim = haskellLib.dontCheck (self.callCabal2nixWithOptions "io-sim" (deps.io-sim + "/io-sim") "" {});
-  
-  # Build strict-stm and strict-mvar from the io-sim thunk's standalone directories
-  # These use the old InspectMonad API and are compatible with this io-classes version
-  strict-stm = haskellLib.dontCheck (self.callCabal2nixWithOptions "strict-stm" (deps.io-sim + "/strict-stm") "" {});
-  strict-mvar = haskellLib.dontCheck (self.callCabal2nixWithOptions "strict-mvar" (deps.io-sim + "/strict-mvar") "" {});
+  # io-sim
+  # io-classes and io-sim use cabal-version 3.4, so we use pre-generated .nix files
+  io-classes = haskellLib.dontCheck (self.callPackage ../generated-nix-expressions/io-classes.nix {
+    src = deps.io-sim;
+  });
+  io-sim = haskellLib.dontCheck (self.callPackage ../generated-nix-expressions/io-sim.nix {
+    src = deps.io-sim;
+  });
+  # Note: strict-stm and strict-mvar are sublibraries of io-classes in newer versions (io-classes:strict-stm, io-classes:strict-mvar)
+  # But they exist as deprecated standalone packages at commit a22dced (May 17, 2024)
+  # strict-checked-vars needs them as dependencies, so we use the deprecated standalone versions
+  strict-mvar = haskellLib.dontCheck (self.callCabal2nixWithOptions "strict-mvar" (pkgs.fetchFromGitHub {
+    owner = "input-output-hk";
+    repo = "io-sim";
+    rev = "a22dced7d012d10227ab0fe370889665c064caf9";  # tag strict-mvar-1.5.0.0
+    sha256 = "1sv5z8288031mdwlvm0v71yv3avw5zdg8bswj5y5idzqk12c9h2k";
+  }) "--subpath strict-mvar" {});
+  strict-stm = haskellLib.dontCheck (self.callCabal2nixWithOptions "strict-stm" (pkgs.fetchFromGitHub {
+    owner = "input-output-hk";
+    repo = "io-sim";
+    rev = "a22dced7d012d10227ab0fe370889665c064caf9";  # tag strict-stm-1.5.0.0
+    sha256 = "1sv5z8288031mdwlvm0v71yv3avw5zdg8bswj5y5idzqk12c9h2k";
+  }) "--subpath strict-stm" {});
   # strict-checked-vars from cardano-base monorepo (newer commit than cardanoBaseSrc)
   strict-checked-vars = self.callCabal2nixWithOptions "strict-checked-vars" (pkgs.fetchFromGitHub {
     owner = "input-output-hk";
@@ -607,8 +618,8 @@ in self: super: {
   hspec-discover = self.callHackage "hspec-discover" "2.8.2" {};
   hspec-expectations = self.callHackage "hspec-expectations" "0.8.2" {};
   hspec-meta = self.callHackage "hspec-meta" "2.7.8" {};
-  # quickcheck-instances is DEPRECATED - all instances now in QuickCheck 2.17.1.0 (GHC 9.6.7)
-  quickcheck-instances = null;
+  QuickCheck = self.callHackage "QuickCheck" "2.14.2" {};
+  quickcheck-instances = self.callHackage "quickcheck-instances" "0.3.27" {};
   hedgehog = self.callCabal2nix "hedgehog" (deps.haskell-hedgehog + "/hedgehog") {}; # self.callHackage "hedgehog" "1.1" {};
   hedgehog-fn = haskellLib.doJailbreak super.hedgehog-fn; # allow newer hedgehog
   hedgehog-quickcheck = haskellLib.doJailbreak (self.callHackage "hedgehog-quickcheck" "0.1.1" {});
@@ -752,7 +763,12 @@ in self: super: {
     rev = "bab3a2f952a880c14e79860b222a7536c83f686c";  # tag v0.10.3.1 (monorepo)
     sha256 = "18z3ygd40jdf7r29nqszcddhhqzg89gq0f6hz92n5y9jdgk3yyh4";
   }) {});
-  beam-automigrate = haskellLib.dontCheck super.beam-automigrate;
+  beam-automigrate = haskellLib.dontCheck (self.callCabal2nix "beam-automigrate" (pkgs.fetchFromGitHub {
+    owner = "obsidiansystems";
+    repo = "beam-automigrate";
+    rev = "9294164cedbb9c31e0d9e58bf97becd987aa2baf";  # tag v0.1.7.0
+    sha256 = "103si2r8fcq4b2z12zxrfj1xaxq2zggh0s2x5jgivplcp089dvhc";
+  }) {});
 
   # ---------------------------------------------------------------------------
   # From Hackage - HTTP/Web
@@ -794,7 +810,7 @@ in self: super: {
     rev = "f780a2c9c8665402408683ac2c541c073fb76060";  # tag v0.4.4.0
     sha256 = "1w1cka6s04ma0510v1j9iwmcrfhiykfhfb2w3ygkfh7d14jffj1d";
   }) {});
-  hexstring = haskellLib.dontCheck (self.callCabal2nix "hexstring" deps.haskell-hexstring {});
+  hexstring = self.callHackage "hexstring" "0.11.1" {};
   io-streams = haskellLib.dontCheck (self.callHackage "io-streams" "1.5.2.2" {});
   logging-effect = self.callHackage "logging-effect" "1.4.1" {};
   # managed 1.0.10 (from Hackage tarball directly, not in all-cabal-hashes archive)

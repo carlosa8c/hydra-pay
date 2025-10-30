@@ -1,0 +1,28 @@
+--- a/src/Simulation/Network/Snocket.hs
++++ b/src/Simulation/Network/Snocket.hs
+@@ -56,7 +56,7 @@
+ import Control.Monad.Class.MonadTime.SI
+ import Control.Monad.Class.MonadTimer.SI
+ import Control.Monad.ST.Unsafe (unsafeIOToST)
+-import Control.Tracer (Tracer, contramap, contramapM, traceWith)
++import Control.Tracer (Tracer, contramap, traceWith)
+ 
+ import GHC.IO.Exception
+ 
+@@ -830,12 +830,10 @@
+                -> SnocketTrace m (TestAddress addr)
+                -> m ()
+     traceWith' fd =
+-      let tr' :: Tracer m (SnocketTrace m (TestAddress addr))
+-          tr' = (\ev -> (\a b -> WithAddr (hush a)
+-                                          (hush b) ev)
+-                    <$> getLocalAddrM  fd
+-                    <*> getRemoteAddrM fd)
+-                `contramapM` tr
++          tr' = Tracer $ \ev -> do
++            a <- getLocalAddrM fd
++            b <- getRemoteAddrM fd
++            traceWith tr (WithAddr (hush a) (hush b) ev)
+       in traceWith tr'
+ 
+     --

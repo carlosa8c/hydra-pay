@@ -1,0 +1,23 @@
+cabal-version: 2.2
+name: quickcheck-instances
+version: 0.3.33
+synopsis: Dummy package - QuickCheck 2.17.1.0 has all instances built-in
+description:
+  This is a dummy package to satisfy dependencies on quickcheck-instances.
+  QuickCheck 2.17.1.0 (GHC 9.6.7) includes all Arbitrary instances that
+  quickcheck-instances used to provide, making this package obsolete.
+  .
+  This dummy package re-exports QuickCheck to maintain compatibility.
+license: MIT
+author: Dummy
+maintainer: dummy@example.com
+category: Testing
+
+library
+  exposed-modules:
+    Test.QuickCheck.Instances
+  build-depends:
+      base >= 4.12 && < 5
+    , QuickCheck >= 2.14
+  hs-source-dirs: src
+  default-language: Haskell2010

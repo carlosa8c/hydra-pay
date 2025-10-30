@@ -38,8 +38,8 @@ build-users-group =
 sandbox-fallback = false
 filter-syscalls = false
 narinfo-cache-positive-ttl = 3600
-substituters = ${SUBSTITUTERS:-https://cache.nixos.org/}
-trusted-public-keys = ${TRUSTED_PUBLIC_KEYS:-cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=}
+substituters = ${SUBSTITUTERS:-https://cache.nixos.org/ https://cache.iog.io https://cache.zw3rk.com}
+trusted-public-keys = ${TRUSTED_PUBLIC_KEYS:-cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= loony-tools:pr9m4BkM/5/eSTZlkQyRt57Jz7OMBxNSUiMC4FkcNfk=}
 trusted-users = root
 EOF
 

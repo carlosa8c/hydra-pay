@@ -9,7 +9,8 @@ args@{ rpSetup, obelisk, ... }:
         {
           time-compat = haskellLib.dontCheck super.time-compat;
           text-short = super.text-short;
-          quickcheck-instances = haskellLib.doJailbreak super.quickcheck-instances;
+          # quickcheck-instances is DEPRECATED - all instances now in QuickCheck 2.17.1.0 (GHC 9.6.7)
+          quickcheck-instances = null;
 
           # https://github.com/input-output-hk/plutus/pull/4413
           # Stubs out unused functionality that breaks 32-bit build

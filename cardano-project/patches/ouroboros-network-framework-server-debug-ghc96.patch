@@ -1,0 +1,14 @@
+--- a/src/Ouroboros/Network/Socket.hs
++++ b/src/Ouroboros/Network/Socket.hs
+@@ -698,9 +698,9 @@ debuggingNetworkServerTracers :: (Show addr, Show vNumber)
+                               =>  NetworkServerTracers addr vNumber
+ debuggingNetworkServerTracers = NetworkServerTracers {
+-      nstMuxTracer          = showTracing stdoutTracer,
+-      nstHandshakeTracer    = showTracing stdoutTracer,
+-      nstErrorPolicyTracer  = showTracing stdoutTracer,
+-      nstAcceptPolicyTracer = showTracing stdoutTracer
++      nstMuxTracer          = mempty,
++      nstHandshakeTracer    = mempty,
++      nstErrorPolicyTracer  = mempty,
++      nstAcceptPolicyTracer = mempty
+     }

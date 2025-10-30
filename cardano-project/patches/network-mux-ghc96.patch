@@ -1,0 +1,28 @@
+--- a/src/Network/Mux.hs
++++ b/src/Network/Mux.hs
+@@ -696,7 +696,7 @@
+         traceWith tracer $ TraceChannelRecvEnd mc (fromIntegral $ BL.length blob)
+         return $ Just blob
+ 
+-traceBearerState :: Tracer m Trace -> BearerState -> m ()
++traceBearerState :: Monad m => Tracer m Trace -> BearerState -> m ()
+ traceBearerState tracer state =
+     traceWith tracer (TraceState state)
+ 
+--- a/src/Network/Mux/DeltaQ/TraceTransformer.hs
++++ b/src/Network/Mux/DeltaQ/TraceTransformer.hs
+@@ -28,11 +28,11 @@ initDeltaQTracer' :: MonadSTM m
+ initDeltaQTracer' tr = do
+     v <- newTVarIO initialStatsA
+     return $ dqTracer v tr
+ 
+-dqTracer :: MonadSTM m
++dqTracer :: (Monad m, MonadSTM m)
+          => StrictTVar m StatsA
+          -> Tracer m Trace
+          -> Tracer m Trace
+-dqTracer sTvar tr = Tracer go
++dqTracer sTvar tr = arrow (emit go)
+   where
+     go (TraceRecvDeltaQObservation SDUHeader { mhTimestamp, mhLength } t)
+       = update mhTimestamp t (fromIntegral mhLength)

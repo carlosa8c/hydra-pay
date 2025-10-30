@@ -1,0 +1,25 @@
+--- ouroboros-network-framework-0.18.0.2.orig/src/Simulation/Network/Snocket.hs	2025-10-30 02:38:43
++++ ouroboros-network-framework-0.18.0.2/src/Simulation/Network/Snocket.hs	2025-10-30 02:40:36
+@@ -56,7 +56,9 @@
+ import Control.Monad.Class.MonadTime.SI
+ import Control.Monad.Class.MonadTimer.SI
+ import Control.Monad.ST.Unsafe (unsafeIOToST)
+-import Control.Tracer (Tracer, contramap, contramapM, traceWith)
++import Control.Tracer (Tracer, contramap, traceWith, arrow)
++import Control.Tracer.Arrow (effect, emit)
++import Control.Category ((>>>))
+ 
+ import GHC.IO.Exception
+ 
+@@ -86,6 +88,11 @@
+ 
+ import Test.Ouroboros.Network.Data.Script (Script (..), stepScriptSTM)
+ 
++-- GHC 9.6 compat: replace contramapM (removed in contra-tracer 0.2.0)
++contramapM :: Monad m => (a -> m b) -> Tracer m b -> Tracer m a
++contramapM f tr = arrow (effect f >>> emit (traceWith tr))
++
++
+ data Connection m addr = Connection
+     { -- | Attenuated channels of a connection.
+       --

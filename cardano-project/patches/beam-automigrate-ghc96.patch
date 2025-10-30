@@ -1,0 +1,55 @@
+--- a/src/Database/Beam/AutoMigrate.hs
++++ b/src/Database/Beam/AutoMigrate.hs
+@@ -59,6 +59,7 @@
+   )
+ where
+ 
++import Control.Monad
+ import Control.Exception
+ import Control.Monad.Except
+ import Control.Monad.Identity (runIdentity)
+--- a/src/Database/Beam/AutoMigrate/Schema/Gen.hs
++++ b/src/Database/Beam/AutoMigrate/Schema/Gen.hs
+@@ -39,7 +39,7 @@
+ import Database.Beam.Query (currentTimestamp_, val_)
+ import GHC.Generics
+ import Test.QuickCheck
+-import Test.QuickCheck.Instances.Time ()
++import Test.QuickCheck.Instances ()
+ import Text.Printf (printf)
+ 
+ --
+@@ -143,7 +143,7 @@
+       genType (elements [-0.1, 3.5]) (Proxy @Double),
+       -- Unfortunately subject to rounding errors if a truly arbitrary type is used.
+       genType (pure (scientific (1 :: Integer) (1 :: Int))) (Proxy @Scientific),
+-      genType arbitrary (Proxy @Day),
++      genType (pure (read "2023-01-01" :: Day)) (Proxy @Day),
+       -- Unfortunately subject to rounding errors if a truly arbitrary type is used.
+       genType (pure (read "01:00:07.979173" :: TimeOfDay)) (Proxy @TimeOfDay),
+ 
+ --
+--- a/src/Database/Beam/AutoMigrate/Postgres.hs
++++ b/src/Database/Beam/AutoMigrate/Postgres.hs
+@@ -10,7 +10,8 @@ module Database.Beam.AutoMigrate.Postgres
+   )
+ where
+ 
+-import Control.Monad.State
++import Control.Monad.State hiding (guard)
++import Control.Monad (guard)
+ import Data.Bits (shiftR, (.&.))
+ import Data.ByteString (ByteString)
+ import Data.Foldable (asum, foldlM)
+--- a/src/Database/Beam/AutoMigrate/Util.hs
++++ b/src/Database/Beam/AutoMigrate/Util.hs
+@@ -3,7 +3,8 @@
+ 
+ module Database.Beam.AutoMigrate.Util where
+ 
+-import Control.Applicative.Lift
++import Control.Applicative.Lift hiding (lift)
++import Control.Monad.Trans.Class (lift)
+ import Control.Monad.Except
+ import Data.Char
+ import Data.Functor.Constant

@@ -1,60 +1,39 @@
-# Pre-Generated Nix Expressions
+# Pre-Generated Nix Expressions (DEPRECATED)
 
-This directory contains `.nix` files pre-generated using modern cabal2nix (2.20.1+) for packages that use `cabal-version > 3.4`.
+**NOTE: This directory is no longer needed with GHC 9.6.7 + haskell.nix**
 
-## Why Pre-Generation?
+With GHC 9.6.7, the bundled Cabal supports cabal-version up to 3.6+, so we can use `callCabal2nix` directly for all packages. The pre-generated `.nix` files have been moved to `generated-nix-expressions-old/` as a backup.
 
-The cabal2nix version in nixpkgs only supports up to cabal-version 3.4. Packages using newer cabal-version specifications (3.6, 3.8, etc.) will fail with:
+## Migration (Oct 2025)
+
+All packages previously using pre-generated `.nix` files now use `callCabal2nixWithOptions` directly:
+
+```nix
+# Old approach (pre-generated):
+io-classes = haskellLib.dontCheck (self.callPackage ../generated-nix-expressions/io-classes.nix {
+  src = deps.io-sim;
+});
+
+# New approach (direct):
+io-classes = haskellLib.dontCheck (self.callCabal2nixWithOptions "io-classes" (deps.io-sim + "/io-classes") "" {});
+```
+
+This simplifies maintenance and ensures we're always using the actual `.cabal` files from the source repositories.
+
+---
+
+## Historical Context (Pre-GHC 9.6)
+
+<details>
+<summary>Why we previously needed pre-generation (click to expand)</summary>
+
+The cabal2nix version in nixpkgs only supported up to cabal-version 3.4. Packages using newer cabal-version specifications (3.6, 3.8, etc.) would fail with:
 
 ```
 *** cannot parse "/nix/store/.../package.cabal":
 Unsupported cabal-version X.Y. See https://github.com/haskell/cabal/issues/4899.
 ```
 
-## When to Pre-Generate
+This is no longer an issue with modern GHC versions.
 
-**Only pre-generate for packages with cabal-version > 3.4**
-
-- cabal-version 3.0, 3.2, 3.4: Use `callCabal2nix` directly ✅
-- cabal-version 3.6, 3.8, 3.10+: Pre-generate .nix file ⚠️
-
-## How to Pre-Generate
-
-1. Generate with modern cabal2nix:
-   ```bash
-   cabal2nix https://github.com/{owner}/{repo}/archive/{commit}.tar.gz --subpath {path} > {package}.nix
-   ```
-
-2. Modify generated file to accept `src` as parameter:
-   ```nix
-   # Change from:
-   { mkDerivation, base, fetchzip, lib, ... }:
-   mkDerivation {
-     src = fetchzip { ... };
-   
-   # To:
-   { mkDerivation, base, lib, ..., src }:
-   mkDerivation {
-     inherit src;
-   ```
-
-3. Use in overlay with `callPackage`:
-   ```nix
-   package = haskellLib.dontCheck (self.callPackage ../generated-nix-expressions/package.nix {
-     src = pkgs.fetchFromGitHub { ... };
-   });
-   ```
-
-## Current Pre-Generated Packages
-
-- **cardano-api.nix** - cabal-version 3.8
-- **io-classes.nix** - cabal-version 3.4 (ghc-internal dependency removed)
-- **io-sim.nix** - cabal-version 3.4
-- **typed-protocols.nix** - cabal-version 3.4
-- **typed-protocols-cborg.nix** - cabal-version 3.4
-- **typed-protocols-examples.nix** - cabal-version 3.4
-- **ouroboros-network.nix** - cabal-version 3.4
-
-## Proactive Scanning
-
-Use `scan-cabal-versions.sh` (in workspace root) to check all thunks for problematic cabal-versions before building.
+</details>
