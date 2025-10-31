@@ -12,7 +12,8 @@ build-in-docker.log
 *.log
 .docker-nix-store/
 .docker-nix-cache/
-
+.DS_Store
+.build-in-docker.log
 # Nix/direnv noise (if used)
 .direnv/
 *.drv

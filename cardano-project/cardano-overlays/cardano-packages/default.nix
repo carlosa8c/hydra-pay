@@ -8,12 +8,7 @@ let
   # - cardanoPackageDeps: cardano-overlays/cardano-packages/dep/ (contains io-sim, typed-protocols, etc.)
   # - topLevelDeps: workspace root /dep/ (contains aeson, cardano-node, hydra, etc.)
   
-  cardanoBaseSrc = pkgs.fetchFromGitHub {
-    owner = "IntersectMBO";
-    repo = "cardano-base";
-    rev = "994d5b42e28b98e4a4a53607182b93b6390e5487";  # cardano-crypto-class-2.1.5.0
-    sha256 = "0mnav1dxrm24xk9m3s2y49lg1zppjmh7jkhmawnkb3dqcib6kqh7";
-  };
+  cardanoBaseSrc = cardanoPackageDeps.cardano-base;
 in self: super: {
   # Fix broken libpq: use postgresql-libpq instead
   # Old libpq-0.4.1 is marked as broken in nixpkgs
@@ -40,6 +35,7 @@ in self: super: {
   # cardano-base subpackages from cardanoBaseSrc (same commit as thunk)
   heapwords = self.callCabal2nix "heapwords" (cardanoBaseSrc + "/heapwords") {};
   cardano-strict-containers = haskellLib.dontCheck (self.callCabal2nix "cardano-strict-containers" (cardanoBaseSrc + "/cardano-strict-containers") {});
+  cardano-crypto-class = self.callCabal2nix "cardano-crypto-class" (cardanoBaseSrc + "/cardano-crypto-class") {};
   
   # cardano-base
   cardano-binary = haskellLib.dontCheck (haskellLib.doJailbreak (haskellLib.enableCabalFlag (
@@ -197,7 +193,7 @@ in self: super: {
   hedgehog-extras = self.callCabal2nix "hedgehog-extras" deps.hedgehog-extras {};
 
   # plutus (uh oh!)
-  # plutus-core = self.callCabal2nix "plutus-core" (deps.plutus + "/plutus-core") {};
+  plutus-core = self.callCabal2nix "plutus-core" (deps.plutus + "/plutus-core") {};
   plutus-ledger = haskellLib.overrideCabal (self.callCabal2nix "plutus-ledger" (deps.plutus + "/plutus-ledger") {}) (drv: {
     doHaddock = false; # to avoid plutus-tx-plugin errors
     # NOTE: see link for details

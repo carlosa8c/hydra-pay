@@ -161,9 +161,10 @@ let
             # Define it locally using arrow API
             packages.ouroboros-network-testing.patches = [ ./patches/ouroboros-network-testing-ghc96.patch ];
             
-            # CRITICAL: Patch ouroboros-network-framework for GHC 9.6
+                        # CRITICAL: Patch ouroboros-network-framework for GHC 9.6
             # contra-tracer 0.2.0 removed showTracing and nullTracer/stdoutTracer
             packages.ouroboros-network-framework.patches = [
+              ./patches/ouroboros-network-framework-contramapM-ghc96.patch
               ./patches/ouroboros-network-framework-connect-null-ghc96.patch
               ./patches/ouroboros-network-framework-connect-debug-ghc96.patch
               ./patches/ouroboros-network-framework-server-null-ghc96.patch
