@@ -1,0 +1,21 @@
+diff --git a/src/Ouroboros/Network/Socket.hs b/src/Ouroboros/Network/Socket.hs
+--- a/src/Ouroboros/Network/Socket.hs
++++ b/src/Ouroboros/Network/Socket.hs
+@@ -68,6 +68,7 @@ import Data.Bifunctor (first)
+ import Data.ByteString.Lazy qualified as BL
+ import Data.Foldable (traverse_)
++import Data.Functor.Contravariant (contramap)
+ import Data.Hashable
+ import Data.Monoid.Synchronisation (FirstToFinish (..))
+ import Data.Typeable (Typeable)
+@@ -113,6 +114,9 @@ nullNetworkConnectTracers = NetworkConnectTracers {
+       nctMuxTracers      = Mx.nullTracers,
+       nctHandshakeTracer = nullTracer
+     }
++
++showTracing :: Show a => Tracer m String -> Tracer m a
++showTracing = contramap show
+ 
+ 
+ debuggingNetworkConnectTracers :: (Show addr, Show vNumber)
+                                => NetworkConnectTracers addr vNumber
