@@ -1,0 +1,12 @@
+--- a/src/ouroboros-consensus/Ouroboros/Consensus/Util/Enclose.hs
++++ b/src/ouroboros-consensus/Ouroboros/Consensus/Util/Enclose.hs
+@@ -84,7 +84,8 @@ encloseWith ::
+ --     pure (input + 5)
+ -- :}
+ encloseWith ::
+-  Applicative m =>
++  -- FIXED for GHC 9.6.7 / contra-tracer 0.2: traceWith requires Monad m
++  Monad m =>
+   Tracer m Enclosing ->
+   m a ->
+   m a

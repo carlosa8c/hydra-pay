@@ -1,0 +1,57 @@
+--- a/src/Network/Mux/Trace.hs
++++ b/src/Network/Mux/Trace.hs
+@@ -209,14 +209,14 @@
+   }
+ 
+ 
+-nullTracers :: Applicative m => Tracers' m f
++nullTracers :: Monad m => Tracers' m f
+ nullTracers = tracersWith nullTracer
+ 
+ 
+ -- | A convenient bidirectional pattern synonym which (un)wraps the `Identity`
+ -- functor in the `Tracer` type.
+ --
+-pattern TracersI :: forall m.
++pattern TracersI :: forall m. Monad m =>
+                     Tracer m Trace
+                  -> Tracer m ChannelTrace
+                  -> Tracer m BearerTrace
+@@ -238,7 +238,7 @@
+ 
+ -- | Contravariant natural transformation of `Tracers' m`.
+ --
+-contramapTracers' :: (forall x. f' x -> f x)
++contramapTracers' :: Monad m => (forall x. f' x -> f x)
+                   -> Tracers' m f -> Tracers' m f'
+ contramapTracers'
+   f
+@@ -255,5 +255,5 @@
+ 
+ type TracersWithBearer connId m = Tracers' m (WithBearer connId)
+ 
+-tracersWithBearer :: peerId -> TracersWithBearer peerId m -> Tracers m
++tracersWithBearer :: Monad m => peerId -> TracersWithBearer peerId m -> Tracers m
+ tracersWithBearer peerId = contramapTracers' (WithBearer peerId . runIdentity)
+--- a/src/Network/Mux/DeltaQ/TraceTransformer.hs
++++ b/src/Network/Mux/DeltaQ/TraceTransformer.hs
+@@ -35,7 +35,7 @@
+          => StrictTVar m StatsA
+          -> Tracer m BearerTrace
+          -> Tracer m BearerTrace
+-dqTracer sTvar tr = Tracer go
++dqTracer sTvar tr = arrow (emit go)
+   where
+     go (TraceRecvDeltaQObservation SDUHeader { mhTimestamp, mhLength } t)
+       = update mhTimestamp t (fromIntegral mhLength)
+--- a/src/Network/Mux.hs
++++ b/src/Network/Mux.hs
+@@ -711,7 +711,7 @@
+         traceWith tracer $ TraceChannelRecvEnd mc (fromIntegral $ BL.length blob)
+         return $ Just blob
+ 
+-traceBearerState :: Tracer m Trace -> State -> m ()
++traceBearerState :: Monad m => Tracer m Trace -> State -> m ()
+ traceBearerState tracer state =
+     traceWith tracer (TraceState state)
+ 

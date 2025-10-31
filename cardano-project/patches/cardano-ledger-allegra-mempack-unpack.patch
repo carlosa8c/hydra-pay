@@ -1,0 +1,26 @@
+--- a/src/Cardano/Ledger/Allegra/Scripts.hs.orig	2025-10-31 13:01:20
++++ b/src/Cardano/Ledger/Allegra/Scripts.hs	2025-10-31 13:41:24
+@@ -9,6 +9,7 @@
+ {-# LANGUAGE FlexibleInstances #-}
+ {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+ {-# LANGUAGE LambdaCase #-}
++{-# LANGUAGE InstanceSigs #-}
+ {-# LANGUAGE MultiParamTypeClasses #-}
+ {-# LANGUAGE OverloadedStrings #-}
+ {-# LANGUAGE PatternSynonyms #-}
+@@ -103,6 +104,7 @@
+ import Data.ByteString.Short (fromShort)
+ import Data.Foldable as F (foldl')
+ import Data.MemPack
++import Data.MemPack.Buffer (Buffer)
+ import Data.Sequence.Strict as Seq (StrictSeq (Empty, (:<|)))
+ import qualified Data.Sequence.Strict as SSeq
+ import qualified Data.Set as Set (Set, member)
+@@ -229,6 +231,7 @@
+ instance Era era => MemPack (Timelock era) where
+   packedByteCount (MkTimelock mb) = byteCountMemoBytes mb
+   packM (MkTimelock mb) = packMemoBytesM mb
++  unpackM :: forall m b. (Monad m, Buffer b) => Unpack m b (Timelock era)
+   unpackM = MkTimelock <$> unpackMemoBytesM (eraProtVerLow @era)
+ 
+ instance Era era => NoThunks (Timelock era)

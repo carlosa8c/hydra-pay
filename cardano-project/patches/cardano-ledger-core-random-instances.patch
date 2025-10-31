@@ -1,0 +1,37 @@
+--- a/src/Cardano/Ledger/Plutus/Language.hs
++++ b/src/Cardano/Ledger/Plutus/Language.hs
+@@ -232,7 +232,9 @@ instance Arbitrary Language where
+ 
+ instance NFData Language
+ 
+-instance Random Language
++-- DISABLED for GHC 9.6.7: Random depends on UniformRange which has derivation issues
++-- This is test-only code. If needed, use: elements [PlutusV1, PlutusV2, PlutusV3, PlutusV4]
++{- instance Random Language -}
+ 
+ instance Uniform Language where
+   uniformM = uniformEnumM
+--- a/src/Cardano/Ledger/BaseTypes.hs
++++ b/src/Cardano/Ledger/BaseTypes.hs
+@@ -868,11 +868,17 @@ deriving newtype instance NoThunks CertIx
+ deriving newtype instance NFData CertIx
+ deriving newtype instance ToJSON CertIx
+ 
+-instance Random CertIx
++-- DISABLED for GHC 9.6.7: Random depends on UniformRange which has derivation issues
++-- This is test-only code. If needed, use: choose (minBound, maxBound)
++{- instance Random CertIx -}
+ 
+ instance Uniform CertIx where
+   uniformM g = CertIx <$> uniformM g
+ 
+-instance UniformRange CertIx where
+-  uniformRM r g = CertIx <$> uniformRM (coerce r) g
++-- DISABLED for GHC 9.6.7: UniformRange causes GUniformRange derivation error
++-- This is test-only code. If needed, use: choose (minBound, maxBound)
++{-
++instance UniformRange CertIx where
++  uniformRM r g = CertIx <$> uniformRM (coerce r) g
++-}
+ 
+ instance Arbitrary CertIx where

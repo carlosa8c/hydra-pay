@@ -1,0 +1,10 @@
+--- a/cardano-crypto-class.cabal
++++ b/cardano-crypto-class.cabal
+@@ -1,7 +1,6 @@
+ cabal-version: 3.0
+ name: cardano-crypto-class
+ version: 2.2.3.1
+-pkgconfig-depends: libblst >= 0.3.14
+ 
+ library
+   hs-source-dirs: src

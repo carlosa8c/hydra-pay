@@ -1,0 +1,10 @@
+--- a/src/Cardano/KESAgent/Processes/Agent.hs
++++ b/src/Cardano/KESAgent/Processes/Agent.hs
+@@ -124,7 +124,7 @@ import Control.Monad
+  )
+ import Control.Monad.Class.MonadTimer (threadDelay)
+-import Control.Tracer (Tracer (..), traceWith)
++import Control.Tracer (Tracer (..), traceWith, emit)
+ import Data.Functor.Contravariant ((>$<))
+ import qualified Data.Map.Strict as Map
+ import Data.Proxy (Proxy (.))

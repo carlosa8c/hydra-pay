@@ -1,0 +1,16 @@
+--- a/src/Cardano/KESAgent/Processes/ControlClient.hs
++++ b/src/Cardano/KESAgent/Processes/ControlClient.hs
+@@ -196,10 +196,9 @@ runControlClient1 handler _proxy makeBearer options tracer = do
+             (versionHandshakeClient (map fst drivers))
+         case protocolVersionMay >>= (`lookup` drivers) of
+           Nothing ->
+-            error
+-              "Protocol handshake failed (control)"
+-              traceWith
+-              tracer
++            traceWith
++              tracer
+               ControlClientVersionHandshakeFailed
++              >> error "Protocol handshake failed (control)"
+           Just controlClient ->
+             handler controlClient bearer tracer

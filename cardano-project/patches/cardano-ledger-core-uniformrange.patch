@@ -1,0 +1,17 @@
+--- a/src/Cardano/Ledger/Plutus/Language.hs
++++ b/src/Cardano/Ledger/Plutus/Language.hs
+@@ -237,8 +237,12 @@ instance Random Language
+ instance Uniform Language where
+   uniformM = uniformEnumM
+ 
+-instance UniformRange Language where
+-  uniformRM = uniformEnumRM
++-- DISABLED for GHC 9.6.7: UniformRange Language causes GUniformRange derivation error
++-- This is test-only code. If needed, use: elements [PlutusV1, PlutusV2, PlutusV3, PlutusV4]
++{-
++instance UniformRange Language where
++  uniformRM = uniformEnumRM
++-}
+ 
+ -- | Make a language from its `Enum` index.
+ mkLanguageEnum :: Int -> Maybe Language

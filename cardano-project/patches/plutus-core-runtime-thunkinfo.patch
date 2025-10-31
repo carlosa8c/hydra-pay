@@ -1,0 +1,21 @@
+--- a/plutus-core/src/PlutusCore/Builtin/Runtime.hs
++++ b/plutus-core/src/PlutusCore/Builtin/Runtime.hs
+@@ -38,15 +38,9 @@ instance NoThunks (BuiltinRuntime val) where
+     wNoThunks ctx = \case
+         -- Unreachable, because we don't allow nullary builtins and the 'BuiltinArrow' case only
+         -- checks for WHNF without recursing. Hence we can throw if we reach this clause somehow.
+-        -- TODO: remove the CPP when rest of IOE moves to nothunks>=0.2
+-#if MIN_VERSION_nothunks(0,2,0)
+-        BuiltinCostedResult _ _    -> pure . Just . ThunkInfo $ Left ctx
+-#else
+-        -- Plutus has moved to nothunks>=0.2, but some other IOE repos are using nothunks<0.2.
+-        -- As a consequence, cardano-constitution:create-json-envelope cannot be build.
+-        -- This is a workaround to make it build (default is buildable:False). See `cabal.project`
+-        BuiltinCostedResult _ _    -> pure . Just $ ThunkInfo ctx
+-#endif
++        -- Fixed for nothunks-0.2: ThunkInfo constructor now takes Maybe Info as second argument
++        -- ThunkInfo :: Context -> Maybe Info -> ThunkInfo
++        BuiltinCostedResult _ _    -> pure . Just $ ThunkInfo ctx Nothing
+         -- This one doesn't do much. It only checks that the function stored in the 'BuiltinArrow'
+         -- constructor is in WHNF (this is a sanity check).
+         BuiltinExpectArgument _    -> pure Nothing

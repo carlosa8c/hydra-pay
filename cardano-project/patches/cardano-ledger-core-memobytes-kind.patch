@@ -1,0 +1,18 @@
+--- a/src/Cardano/Ledger/MemoBytes/Internal.hs
++++ b/src/Cardano/Ledger/MemoBytes/Internal.hs
+@@ -136,10 +136,13 @@ packMemoBytesM = packM . mbBytes
+ 
+ unpackMemoBytesM ::
+   ( DecCBOR (Annotator t)
+   , Typeable t
+-  , Buffer b
++  , Buffer b
++  , Buffer m  -- ADDED for GHC 9.6.7: Unpack requires Buffer constraint on result monad
+   ) =>
+-  Version -> Unpack b (MemoBytes t)
++  -- FIXED for GHC 9.6.7: Unpack needs explicit result monad type parameter
++  -- and the monad m must also have Buffer constraint
++  Version -> Unpack b m (MemoBytes t)
+ unpackMemoBytesM v = unpackM >>= decodeMemoBytes v
+ 
+ decodeMemoBytes ::

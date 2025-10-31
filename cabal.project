@@ -62,34 +62,41 @@ source-repository-package
   tag: c7a0ebda86bf6a148adf58dfe29a28e66506535b
   --sha256: 0kv4xpqjjj5j0w59nzf9sy7d0iwj5900aslkgmlflcc6js4bspyn
 
--- io-sim monorepo packages (commit a22dced - May 17, 2024)
--- Using version 1.5.0.0 which still has InspectMonad API (before rename to InspectMonadSTM)
--- This is compatible with typed-protocols-cborg 0.3.0.0 which requires io-classes ^>=1.5
--- This overrides CHaP's io-classes 1.8.0.1 which has InspectMonadSTM API (breaking change from May 7, 2024)
+-- ouroboros-consensus 0.28.0.0 - compatible with cardano-ledger-core 1.18
+-- We'll patch it for GHC 9.6.7 / mempack compatibility
+source-repository-package
+  type: git
+  location: https://github.com/IntersectMBO/ouroboros-consensus
+  tag: effb0a5c924f4764bad068b8609e1a7a11262ba8
+  --sha256: 0pn3albqqz17myhi32b7xq673s91h5v6mv5sdhnkb9rkqmfrswdm
+  subdir:
+    ouroboros-consensus
+    ouroboros-consensus-cardano
+    ouroboros-consensus-protocol
+    ouroboros-consensus-diffusion
+    sop-extras
+    strict-sop-core
+
+-- Let CHaP provide ouroboros-network ecosystem packages
+-- CHaP has the latest compatible versions:
+-- - ouroboros-network-0.23.0.0 (Sep 10, 2024)
+-- - ouroboros-network-api-0.17.0.0 (Sep 10, 2024)
+-- - ouroboros-network-framework-0.20.0.0 (Sep 10, 2024)
+-- - ouroboros-network-protocols-0.16.0.0 (Sep 10, 2024)
+-- These all work together without patches or version conflicts
+
+-- io-sim packages (commit 7bb26bf - Jun 5, 2024)
+-- Using io-classes-1.8.0.1 which has the NEW InspectMonadSTM API
+-- This is what ouroboros-network-0.23.0.0 requires (^>=1.8.0.1)
+-- In this commit, strict-stm/strict-mvar/si-timers are sublibraries of io-sim, not separate packages
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/io-sim
-  tag: a22dced7d012d10227ab0fe370889665c064caf9
-  --sha256: 1sv5z8288031mdwlvm0v71yv3avw5zdg8bswj5y5idzqk12c9h2k
+  tag: 7bb26bf139b6e9386d1e8d49f6cba1f0f3342e70
+  --sha256: 1i05v05j8qc8anh6swby68vi2h5rh6cp5bbg8p81qlhw772zcczj
   subdir:
     io-sim
     io-classes
-    strict-stm
-    strict-mvar
-    si-timers
-
--- typed-protocols monorepo packages (commit d127d3e - Sept 26, 2024)
--- Version 0.3.0.0 for both typed-protocols and typed-protocols-cborg
--- These are compatible with io-sim packages above (both use old InspectMonad API)
--- This overrides CHaP's typed-protocols-cborg-0.1.0.4 which expects newer API
-source-repository-package
-  type: git
-  location: https://github.com/input-output-hk/typed-protocols
-  tag: d127d3ebd1850b7d1aa6eb75c0b040b1f94d0e24
-  --sha256: 0drd4xkvn2jjwmj00pdj62y6fgg8sag3vjpgz6yqppbry8dcj8c0
-  subdir:
-    typed-protocols
-    typed-protocols-cborg
 
 -- CHaP (Cardano Haskell Packages) repository
 -- This is where modern Cardano packages are published
@@ -132,3 +139,13 @@ package *
 -- were moved to microlens-th in 0.5.0
 -- But solver is picking 0.5.0.0 which breaks the build
 constraints: microlens < 0.5
+
+-- CRITICAL: Reject outdated strict-stm/strict-mvar/si-timers from CHaP/Hackage
+-- CHaP has strict-stm-1.5.0.0 (May 2024) with old InspectMonad API
+-- Our io-sim source-repository-package (Jun 2024) provides these with new InspectMonadSTM API
+-- Reject all versions to force solver to find them in io-sim
+constraints: strict-stm <0
+           , strict-mvar <0
+           , si-timers <0
+           -- Require nothunks >= 0.2 for plutus-core CPP compatibility
+           , nothunks >= 0.2

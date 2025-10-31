@@ -1,0 +1,11 @@
+--- a/src/Ouroboros/Network/InboundGovernor.hs
++++ b/src/Ouroboros/Network/InboundGovernor.hs
+@@ -54,6 +54,7 @@ import Control.Monad.Class.MonadFork
+ import Control.Monad.Class.MonadThrow
+ import Control.Monad.Class.MonadTime.SI
+ import Control.Monad.Class.MonadTimer.SI
+ import Control.Tracer (Tracer (..), traceWith)
++import Control.Tracer (emit)
+ 
+ import Data.Bifunctor (first)
+ import Data.ByteString.Lazy (ByteString)

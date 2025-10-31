@@ -1,0 +1,11 @@
+--- a/src/Ouroboros/Network/Socket.hs
++++ b/src/Ouroboros/Network/Socket.hs
+@@ -76,7 +76,7 @@ import qualified Network.Socket as Socket
+ import Network.Socket (SockAddr, Socket, StructLinger (..))
+ import Network.Socket qualified as Socket
+ 
+-import Control.Tracer
++import Control.Tracer (Tracer, contramap, nullTracer, stdoutTracer, traceWith)
+ 
+ import Network.Mux qualified as Mx
+ import Network.Mux.Bearer qualified as Mx

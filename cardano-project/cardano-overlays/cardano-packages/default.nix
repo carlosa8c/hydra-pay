@@ -148,21 +148,17 @@ in self: super: {
   lobemo-backend-ekg = self.callCabal2nix "lobemo-backend-ekg" (deps.iohk-monitoring-framework + "/plugins/backend-ekg") {};
   lobemo-scribe-systemd = self.callCabal2nix "lobemo-scribe-systemd" (deps.iohk-monitoring-framework + "/plugins/scribe-systemd") {};
 
-  # ouroboros-network
-  # Note: ouroboros-network uses cabal-version 3.4, so we use pre-generated .nix file
-  # Many ouroboros-network-* subpackages don't exist in thunk at commit 4eb9750
-  # They were likely moved to a different repo or restructured
-  ouroboros-network = haskellLib.dontCheck (haskellLib.doJailbreak (self.callPackage ../generated-nix-expressions/ouroboros-network.nix {
-    src = deps.ouroboros-network;
-  }));
-  ouroboros-network-framework = haskellLib.dontCheck (haskellLib.doJailbreak (self.callCabal2nix "ouroboros-network-framework" (deps.ouroboros-network + "/ouroboros-network-framework") {}));
-  ouroboros-network-testing = null;  # Path doesn't exist in thunk at commit 4eb9750
-  ouroboros-network-mock = null;  # Path doesn't exist in thunk at commit 4eb9750
-  # ouroboros-network-api and ouroboros-network-protocols are public sublibraries of ouroboros-network package
-  # (defined in ouroboros-network.cabal as "library api" and "library protocols")
-  # Make them aliases to the main ouroboros-network package so dependencies can reference them
-  ouroboros-network-api = self.ouroboros-network;
-  ouroboros-network-protocols = self.ouroboros-network;
+  # ouroboros-network ecosystem - Using latest from CHaP (Sep 10, 2024)
+  # CHaP provides:
+  # - ouroboros-network-0.23.0.0 (compatible with ouroboros-network-api-0.17.0.0)
+  # - ouroboros-network-api-0.17.0.0 (public sublibrary)
+  # - ouroboros-network-framework-0.20.0.0
+  # - ouroboros-network-protocols-0.16.0.0 (public sublibrary)
+  # - network-mux-0.9.1.0
+  # All these work together with GHC 9.6.7 and contra-tracer 0.2.0+ without patches
+  # No overrides needed - let CHaP provide all ouroboros-network packages
+  
+  # ouroboros-consensus - from thunks
   ouroboros-consensus = haskellLib.doJailbreak (self.callCabal2nix "ouroboros-consensus" (deps.ouroboros-consensus + "/ouroboros-consensus") {});
   ouroboros-consensus-byron = haskellLib.doJailbreak (self.callCabal2nix "ouroboros-consensus-byron" (deps.ouroboros-consensus + "/ouroboros-consensus-byron") {});
   ouroboros-consensus-shelley = haskellLib.doJailbreak (self.callCabal2nix "ouroboros-consensus-shelley" (deps.ouroboros-consensus + "/ouroboros-consensus-shelley") {});
@@ -171,9 +167,6 @@ in self: super: {
   ouroboros-consensus-protocol = haskellLib.doJailbreak (self.callCabal2nix "ouroboros-consensus-protocol" (deps.ouroboros-consensus + "/ouroboros-consensus-protocol") {});
   sop-extras = self.callCabal2nix "sop-extras" (deps.ouroboros-consensus + "/sop-extras") {};
   strict-sop-core = self.callCabal2nix "strict-sop-core" (deps.ouroboros-consensus + "/strict-sop-core") {};
-  monoidal-synchronisation = self.callCabal2nix "monoidal-synchronisation" (deps.ouroboros-network + "/monoidal-synchronisation") {};
-  network-mux = haskellLib.dontCheck (haskellLib.doJailbreak (self.callCabal2nix "network-mux" (deps.ouroboros-network + "/network-mux") {}));
-  ntp-client = haskellLib.dontCheck (haskellLib.doJailbreak (self.callCabal2nix "ntp-client" (deps.ouroboros-network + "/ntp-client") {}));
 
   # cardano-node
   # cardano-api = haskellLib.dontCheck (self.callCabal2nix "cardano-api" (deps.cardano-node + "/cardano-api") {});

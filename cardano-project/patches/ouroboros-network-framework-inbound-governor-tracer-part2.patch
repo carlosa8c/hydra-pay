@@ -1,0 +1,12 @@
+--- a/src/Ouroboros/Network/InboundGovernor.hs
++++ b/src/Ouroboros/Network/InboundGovernor.hs
+@@ -602,7 +602,7 @@
+   -> StrictTVar m Bool
+   -> StrictTVar m (StrictMaybe ResponderCounters)
+   -> Tracer m (Mux.WithBearer (ConnectionId peerAddr) Mux.Trace)
+ inboundGovernorMuxTracer infoChannel connectionDataFlow stateVar activeVar countersVar =
+-  Tracer \(Mux.WithBearer peer trace) -> do
++  Tracer $ emit $ \(Mux.WithBearer peer trace) -> do
+     -- hello from muxer main thread
+     -- code here is running in the context of the connection handler/muxer
+     -- so care must be taken not to deadlock ourselves

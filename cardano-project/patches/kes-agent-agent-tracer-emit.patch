@@ -1,0 +1,11 @@
+--- a/src/Cardano/KESAgent/Processes/Agent.hs
++++ b/src/Cardano/KESAgent/Processes/Agent.hs
+@@ -335,7 +335,7 @@ setConnectionStatus status = atomically $ do
+               putTMVar (agentBootstrapConnections agent) m'
+ 
+         let connStatTracer :: Tracer m ServiceClientTrace
+-            connStatTracer = Tracer $ \case
++            connStatTracer = Tracer $ emit $ \case
+               ServiceClientAttemptReconnect {} ->
+                 setConnectionStatus ConnectionConnecting
+               ServiceClientConnected {} ->

@@ -1,5 +1,17 @@
 # Hydra Pay Build Context for GitHub Copilot
 
+## ⚠️ CRITICAL: Test Patches Locally First!
+
+**NEVER start a Docker build without testing patches locally first!**
+
+When creating or modifying patches:
+1. Extract the source tarball to `/tmp`
+2. Apply patch with `patch -p1 --dry-run < patch-file`
+3. If successful, apply without `--dry-run` and verify changes
+4. ONLY THEN modify Nix configuration and start Docker build
+
+Docker builds are slow (~minutes per attempt). Local patch testing is instant.
+
 ## ⚠️ MIGRATION IN PROGRESS: reflex-platform → haskell.nix
 
 **Current Status**: Actively migrating from reflex-platform to haskell.nix
@@ -13,13 +25,17 @@
 - ✅ Set compiler to GHC 9.6.7 (ghc967)
 - ✅ Added CHaP repository for Cardano packages
 - ✅ Updated cardano-node to 10.4.1, hydra to 1.1.0
-- ✅ **RESOLVED**: strict-stm dependency incompatibility
-  - CHaP was providing io-classes 1.8.0.1 with new InspectMonadSTM API
-  - Solution: Override via `cabal.project` source-repository-package (takes precedence over CHaP)
-  - Now using io-sim commit b61e23a (Nov 8, 2023) with io-classes 1.3.0.0
+- ✅ **UPGRADED to latest ouroboros-network ecosystem** (Oct 31, 2024)
+  - ouroboros-network-0.23.0.0 (was 0.18.0.0)
+  - ouroboros-network-api-0.17.0.0 (was 0.14.1.0)
+  - ouroboros-network-framework-0.20.0.0 (was 0.18.0.2)
+  - ouroboros-network-protocols-0.16.0.0
+  - All from CHaP, tagged Sep 10, 2024 (commit 5334264)
+  - **Removed all ouroboros-network patches** - modern versions support GHC 9.6.7 and contra-tracer 0.2.0+ natively
+  - **Removed io-sim/typed-protocols overrides** - letting CHaP provide latest compatible versions
 - ✅ Defined custom thunkSet function (replaces reflex-platform's thunkSet)
-- 🔄 Build successfully compiling packages (first time past dependency resolution!)
-- ⏳ Waiting for build completion or GHC 9.6.7 compilation errors
+- 🔄 Testing build with latest Cardano packages
+- ⏳ Will review remaining patches (beam-automigrate, postgresql-lo-stream, rhyolite) after successful build
 
 ### Critical Lesson: Overriding CHaP Packages
 **The ONLY way to override CHaP packages in haskell.nix:**
@@ -58,19 +74,21 @@ modules = [
 1. ~~**haskell.nix Package Overrides**: CHaP packages take precedence over local thunk definitions~~ ✅ SOLVED
    - ~~Solution: Use `packages.*.src` overrides in haskell.nix modules~~ **WRONG APPROACH**
    - **CORRECT**: Use cabal.project source-repository-package entries
-2. ✅ **thunkSet missing**: reflex-platform's thunkSet not available in haskell.nix
+2. ~~**io-sim/strict-stm incompatibility**: API changes in InspectMonad~~ ✅ SOLVED
+   - **Solution**: Upgraded to latest ouroboros-network ecosystem (0.23.0.0) which includes compatible versions
+3. ✅ **thunkSet missing**: reflex-platform's thunkSet not available in haskell.nix
    - Solution: Define custom thunkSet using fetchFromGitHub (implemented)
-3. ✅ **Hash mismatches**: SHA256 hashes need recalculation when updating thunks
+4. ✅ **Hash mismatches**: SHA256 hashes need recalculation when updating thunks
    - Use: `nix-prefetch-url --unpack https://github.com/...`
    - Note: Use base64 format (sha256-...), not nix32 format
 
 ## Project Goals
 
-### Goal 1: Complete Migration to haskell.nix
-- Get build working with GHC 9.6.7 and haskell.nix
-- Properly override CHaP packages with local thunks when needed
-- Fix io-sim/strict-stm version compatibility (use Nov 2023 version with old API)
-- Support cabal-version 3.4+ packages (lsm-tree, bloomfilter-blocked, etc.)
+### Goal 1: Complete Migration to haskell.nix ✅ IN PROGRESS
+- ✅ Get build working with GHC 9.6.7 and haskell.nix
+- ✅ Use latest packages from CHaP (no local overrides needed for ouroboros-network)
+- ✅ Support cabal-version 3.4+ packages (using latest from CHaP)
+- 🔄 Build and test with latest Cardano ecosystem (Sep 2024)
 
 ### Goal 2: Update Packages and Dependencies
 - Keep all Haskell packages and dependencies updated to their latest viable versions
@@ -191,57 +209,29 @@ thunkSet = dir: lib.mapAttrs (name: _:
 ) (builtins.readDir dir);
 ```
 
-## Current Issue: strict-stm Dependency Incompatibility
-
-### GHC 9.6.7 Migration Context
-- **GHC 9.6.7 ships with Cabal 3.10+** - CAN parse cabal-version 3.4
-- **This is why we're upgrading** - to support modern Cardano packages
-- **Old limitation (GHC 8.10.7)**: Could only parse cabal-version up to 3.0
-
-### The strict-stm Problem
-
-### The strict-stm Problem
-- **InspectMonad → InspectMonadSTM API rename** in io-classes (May 7, 2024, commit 5863917)
-- **CHaP provides**: strict-stm 1.5.0.0 from Hackage (uses OLD InspectMonad API)
-- **But CHaP also has**: io-classes 1.8.0.1 (has NEW InspectMonadSTM API)
-- **Result**: Incompatibility - strict-stm 1.5.0.0 can't compile with io-classes 1.8.0.1
-
-### Solution: Use io-sim thunk from November 2023
-- **Commit**: b61e23a219c5ae113ff9a43f89b4451c8fe2f353 (Nov 8, 2023)
-- **Version**: strict-stm 1.3.0.0, io-classes 1.3.x
-- **Why**: This version has standalone strict-stm/strict-mvar packages with InspectMonad API
-- **Location**: `cardano-project/cardano-overlays/cardano-packages/dep/io-sim/`
-- **Override method**: Use haskell.nix modules to force src from thunk
-
-### Migration Steps Needed
-1. ✅ Define thunkSet function (replaces reflex-platform thunkSet)
-2. 🚧 Fix SHA256 hash in io-sim thunk's github.json
-3. 🚧 Configure haskell.nix modules to override strict-stm/strict-mvar/io-classes/io-sim
-4. ⏳ Fix remaining GHC 9.6.7 compilation errors
-
 ## Package Update Workflow (haskell.nix Context)
 
 ### Package Source Priority
-1. **CHaP** (Cardano packages) - checked first for Cardano ecosystem
+1. **CHaP** (Cardano packages) - provides latest Cardano ecosystem (Sep 2024)
 2. **Hackage** - standard Haskell packages
-3. **Local thunks** - must be explicitly configured via haskell.nix modules
+3. **Local source-repository-package in cabal.project** - for specific versions or unreleased features
 
-### When to Override with Local Thunks
-- Package has API incompatibility with CHaP version
+### When to Override with cabal.project source-repository-package
+- Package has API incompatibility with CHaP/Hackage version
 - Need specific commit not published to CHaP/Hackage
 - Testing unreleased features
-- Working around CHaP sync lag
+- Working around temporary CHaP sync lag
 
 ### Package Update Decision Tree (GHC 9.6.7)
 1. **Check CHaP first** for Cardano packages
    - Browse: https://github.com/IntersectMBO/cardano-haskell-packages
    - Or: `nix-build` will try CHaP automatically
-2. **If CHaP version incompatible**: Override with local thunk
+2. **Use latest from CHaP when possible** - Sep 2024 versions support GHC 9.6.7
 3. **For non-Cardano packages**: Use Hackage (via haskell.nix)
-4. **If not in Hackage**: Fetch from GitHub
+4. **If not in Hackage**: Add source-repository-package to cabal.project
 
-### Known Packages Requiring Thunk Overrides
-- **io-classes**: Use thunk (Nov 2023) for InspectMonad compatibility
+### Currently Using Latest CHaP Versions (No Overrides Needed)
+All ouroboros-network packages from CHaP (Sep 10, 2024):
 - **io-sim**: Use thunk (Nov 2023) for InspectMonad compatibility  
 - **strict-stm**: Use thunk (Nov 2023) for InspectMonad compatibility
 - **strict-mvar**: Use thunk (Nov 2023) for InspectMonad compatibility
@@ -359,6 +349,92 @@ nix-prefetch-url --unpack https://github.com/{owner}/{repo}/archive/{commit}.tar
 tail -100 build-in-docker.log | strings
 ```
 
+## Patch Testing Workflow
+
+**CRITICAL: Always test patches locally BEFORE starting Docker builds**
+
+### Creating Patches: Use diff -u, NOT Hand-Crafted Heredocs
+
+**⚠️ NEVER hand-craft patches with heredocs - always use `diff -u` to generate patches!**
+
+Hand-crafting patches is extremely error-prone:
+- Wrong hunk headers (line counts, offsets)
+- Missing or incorrect context lines
+- Trailing whitespace issues
+- EOF newline problems
+
+**Correct workflow:**
+
+```bash
+# 1. Download and extract source
+cd /tmp
+curl -sL "https://github.com/{org}/{repo}/archive/refs/tags/{tag}.tar.gz" | tar xz
+cd {extracted-dir}/{subdir-if-monorepo}
+
+# 2. Copy original file
+cp path/to/file.hs file.hs.orig
+
+# 3. Make your changes to the original file
+# Edit path/to/file.hs with your changes
+
+# 4. Generate patch with diff -u
+diff -u file.hs.orig path/to/file.hs > /tmp/package-description.patch
+
+# 5. Fix paths for Nix (adjust 'a/' and 'b/' prefixes)
+sed -i 's|file.hs.orig|a/path/to/file.hs|; s|path/to/file.hs|b/path/to/file.hs|' /tmp/package-description.patch
+
+# 6. Test patch applies cleanly
+patch -p1 --dry-run < /tmp/package-description.patch
+
+# 7. Copy to workspace
+cp /tmp/package-description.patch /path/to/workspace/patches/
+```
+
+**Why this works:**
+- `diff -u` automatically generates correct hunk headers
+- Proper context line counts
+- Correct line offsets
+- No manual EOF/whitespace issues
+
+### Testing Patches Against Source Tarballs
+
+1. **Find the source tarball** (from previous build error or Nix store):
+   ```bash
+   # Extract tarball to /tmp
+   cd /tmp && tar -xzf /nix/store/{hash}-{package}-{version}.tar.gz
+   cd {package}-{version}
+   ```
+
+2. **Test patch with dry-run**:
+   ```bash
+   patch -p1 --dry-run < /path/to/patch/file
+   ```
+
+3. **If dry-run succeeds, apply and verify**:
+   ```bash
+   patch -p1 < /path/to/patch/file
+   grep -A 5 "pattern to verify" path/to/patched/file
+   ```
+
+4. **Iterate on patch until it applies cleanly**
+
+5. **ONLY THEN** start the Docker build
+
+### Common Patch Issues
+
+**Wrong path structure**:
+- Tarball unpacks to `package-version/` but patch expects `package/`
+- Fix: Adjust paths in patch to match tarball structure
+- Example: Use `src/File.hs` not `package/src/File.hs`
+
+**Line number mismatch**:
+- Patch context doesn't match actual file
+- Fix: Read actual file, update patch with correct line numbers and context
+
+**BSD patch compatibility**:
+- Remove Git-specific headers (`diff --git`, `index` lines)
+- Keep only unified diff format (`---`, `+++`, `@@` hunks)
+
 ## Troubleshooting Common Errors
 
 ### "function 'anonymous lambda' called without required argument 'X'"
@@ -376,6 +452,11 @@ tail -100 build-in-docker.log | strings
 ### "Cannot build X.drv. Reason: 1 dependency failed"
 - **Cause**: Earlier dependency in chain failed
 - **Fix**: Search log with `strings build.log | grep -B 10 "building.*X.drv"` to find root cause
+
+### Patch application fails with "Hunk FAILED"
+- **Cause**: Patch context doesn't match actual file
+- **Fix**: Extract source tarball, test patch locally, adjust line numbers/context
+- **Remember**: ALWAYS test patches locally before Docker builds
 
 ## Package Categories in This Project
 
@@ -420,31 +501,6 @@ Located in cardano-ledger repo under `/eras/` and `/libs/`:
 
 ### Alternative (Not Currently Used)
 Interactive container with live editing - could speed up iteration but user wants to keep Docker workflow for future compatibility.
-
-## Patch Testing Workflow
-
-When creating local patches for Haskell packages, test patches directly against the source tarball to iterate faster than rebuilding the entire Nix environment.
-
-### Testing Patches Directly
-
-To test a patch without rebuilding the full project:
-
-1. Find the source tarball path from Nix store (from build error or `nix-store -qR` result)
-2. Extract and test the patch:
-
-```bash
-cd /tmp && tar -xzf /nix/store/{hash}-{package}-{version}.tar.gz && cd {package}-{version} && patch -p1 --dry-run < /path/to/patch/file
-```
-
-Example:
-```bash
-cd /tmp && tar -xzf /nix/store/7himsj4ycdizjsj8149x8vjms452byql-ouroboros-network-framework-0.18.0.2.tar.gz && cd ouroboros-network-framework-0.18.0.2 && patch -p1 --dry-run < /Users/carlos/hydra-pay/cardano-project/patches/ouroboros-network-snocket-ghc96.patch
-```
-
-3. If `--dry-run` succeeds, apply without `--dry-run` and test compilation
-4. Iterate on the patch file until it applies cleanly
-
-This approach allows rapid patch iteration without waiting for full Nix builds.
 
 ## Important Rules
 

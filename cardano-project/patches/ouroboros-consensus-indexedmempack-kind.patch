@@ -1,0 +1,11 @@
+--- a/src/ouroboros-consensus/Ouroboros/Consensus/Util/IndexedMemPack.hs
++++ b/src/ouroboros-consensus/Ouroboros/Consensus/Util/IndexedMemPack.hs
+@@ -30,7 +30,7 @@ import GHC.Stack (HasCallStack)
+ class IndexedMemPack idx a where
+   indexedPackedByteCount :: idx -> a -> Int
+   indexedPackM :: idx -> a -> Pack s ()
+-  indexedUnpackM :: Buffer b => idx -> Unpack b a
++  indexedUnpackM :: forall m. Buffer b => idx -> Unpack b m a
+   indexedTypeName :: idx -> String
+ 
+ indexedPackByteString ::

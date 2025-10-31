@@ -1,9 +1,0 @@
---- a/src/Ouroboros/Network/Socket.hs
-+++ b/src/Ouroboros/Network/Socket.hs
-@@ -143,7 +143,7 @@ nullNetworkConnectTracers :: NetworkConnectTracers addr vNumber
- nullNetworkConnectTracers = NetworkConnectTracers {
--      nctMuxTracer       = nullTracer,
--      nctHandshakeTracer = nullTracer
-+      nctMuxTracer       = mempty,
-+      nctHandshakeTracer = mempty
-     }
